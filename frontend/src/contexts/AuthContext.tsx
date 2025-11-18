@@ -122,7 +122,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
       cancelled = true;
       clearRefreshTimer();
     };
-  }, []);
+  }, [queryClient]);
 
   const {
     data: profileData,

@@ -351,19 +351,18 @@ const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 // API functions
 export async function getMailboxes(): Promise<Mailbox[]> {
   await delay(300);
-  return [...mailboxes];
+  // Recalculate unreadCount for each mailbox based on mockEmails
+  return mailboxes.map((mailbox) => {
+    const unreadCount = mockEmails.filter(
+      (email) => email.mailboxId === mailbox.id && !email.isRead
+    ).length;
+    return { ...mailbox, unreadCount };
+  });
 }
 
 export async function getEmailsByMailbox(mailboxId: string): Promise<Email[]> {
   await delay(500);
   const filtered = mockEmails.filter((email) => email.mailboxId === mailboxId);
-
-  // Update unread counts dynamically
-  const unreadCount = filtered.filter((e) => !e.isRead).length;
-  const mailbox = mailboxes.find((m) => m.id === mailboxId);
-  if (mailbox) {
-    mailbox.unreadCount = unreadCount;
-  }
 
   return filtered;
 }
@@ -402,6 +401,23 @@ export async function toggleEmailStar(emailId: string): Promise<void> {
     }
   }
 }
+export async function archiveEmail(emailId: string): Promise<void> {
+  await delay(200);
+  const email = mockEmails.find((e) => e.id === emailId);
+  if (email) {
+    email.mailboxId = "archive";
+  }
+}
+
+export async function archiveMultiple(emailIds: string[]): Promise<void> {
+  await delay(300);
+  emailIds.forEach((id) => {
+    const email = mockEmails.find((e) => e.id === id);
+    if (email) {
+      email.mailboxId = "archive";
+    }
+  });
+}
 
 export async function deleteEmail(emailId: string): Promise<void> {
   await delay(200);
@@ -432,7 +448,9 @@ export async function deleteMultiple(emailIds: string[]): Promise<void> {
 }
 
 export function formatFileSize(bytes: number): string {
-  if (bytes < 1024) return bytes + " B";
-  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + " KB";
-  return (bytes / (1024 * 1024)).toFixed(1) + " MB";
+  const kb = bytes / 1024;
+  if (kb < 1) return bytes + " B";
+  const mb = kb / 1024;
+  if (mb < 1) return kb.toFixed(1) + " KB";
+  return mb.toFixed(1) + " MB";
 }

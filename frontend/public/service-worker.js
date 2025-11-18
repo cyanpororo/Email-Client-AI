@@ -68,7 +68,12 @@ self.addEventListener("fetch", (event) => {
 
         // Return cached response immediately if available (stale-while-revalidate)
         // Otherwise wait for network response
-        return cachedResponse || fetchPromise;
+        if (cachedResponse) {
+          // Fire and forget network update
+          fetchPromise;
+          return cachedResponse;
+        }
+        return fetchPromise;
       });
     })
   );

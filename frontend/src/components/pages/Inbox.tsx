@@ -198,7 +198,6 @@ export default function Inbox() {
           }
           break;
         case "Delete":
-        case "Backspace":
           if (selectedEmailId && !e.ctrlKey && !e.metaKey) {
             e.preventDefault();
             deleteMutation.mutate(selectedEmailId);

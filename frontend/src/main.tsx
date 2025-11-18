@@ -23,7 +23,7 @@ const queryClient = new QueryClient({
       refetchOnReconnect: true, // Refetch when network reconnects
       retry: 3, // Retry failed requests 3 times
       retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000), // Exponential backoff
-      networkMode: "offlineFirst", // Use cache first, then network
+      networkMode: "always",
     },
   },
 });
