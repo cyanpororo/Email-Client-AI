@@ -1,13 +1,13 @@
-import { Link } from 'react-router-dom'
-import { useAuth } from '../contexts/AuthContext'
-import { Button } from './ui/button'
+import { Link } from "react-router-dom";
+import { useAuth } from "../contexts/AuthContext";
+import { Button } from "./ui/button";
 
 type Props = {
-  children: React.ReactNode
-}
+  children: React.ReactNode;
+};
 
 export function Layout({ children }: Props) {
-  const { user, isAuthenticated, hasRole, logout, isLoading } = useAuth()
+  const { user, isAuthenticated, hasRole, logout, isLoading } = useAuth();
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -31,12 +31,18 @@ export function Layout({ children }: Props) {
               {isAuthenticated && (
                 <>
                   <Link
+                    to="/inbox"
+                    className="text-gray-600 hover:text-gray-900 transition-colors"
+                  >
+                    Inbox
+                  </Link>
+                  <Link
                     to="/dashboard"
                     className="text-gray-600 hover:text-gray-900 transition-colors"
                   >
                     Dashboard
                   </Link>
-                  {hasRole('admin') && (
+                  {hasRole("admin") && (
                     <Link
                       to="/admin"
                       className="text-purple-600 hover:text-purple-700 font-medium transition-colors"
@@ -111,5 +117,5 @@ export function Layout({ children }: Props) {
         </div>
       </footer>
     </div>
-  )
+  );
 }

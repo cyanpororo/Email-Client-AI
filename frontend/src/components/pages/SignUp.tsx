@@ -1,61 +1,63 @@
-import { useForm } from 'react-hook-form'
-import { useMutation } from '@tanstack/react-query'
-import { GoogleLogin, type CredentialResponse } from '@react-oauth/google'
-import { registerUser, type RegisterInput } from '../../api/user'
-import { useAuth } from '../../contexts/AuthContext'
-import { Card, CardContent, CardHeader, CardTitle } from '../ui/card'
-import { Label } from '../ui/label'
-import { Input } from '../ui/input'
-import { Button } from '../ui/button'
-import { Alert } from '../ui/alert'
-import { Link } from 'react-router-dom'
-import { useState } from 'react'
+import { useForm } from "react-hook-form";
+import { useMutation } from "@tanstack/react-query";
+import { GoogleLogin, type CredentialResponse } from "@react-oauth/google";
+import { registerUser, type RegisterInput } from "../../api/user";
+import { useAuth } from "../../contexts/AuthContext";
+import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
+import { Label } from "../ui/label";
+import { Input } from "../ui/input";
+import { Button } from "../ui/button";
+import { Alert } from "../ui/alert";
+import { Link } from "react-router-dom";
+import { useState } from "react";
 
-type FormData = RegisterInput
+type FormData = RegisterInput;
 
 export default function SignUp() {
-  const [successMsg, setSuccessMsg] = useState<string | null>(null)
-  const { googleLogin, error: authError } = useAuth()
-  
+  const [successMsg, setSuccessMsg] = useState<string | null>(null);
+  const { googleLogin, error: authError } = useAuth();
+
   const {
     register,
     handleSubmit,
     formState: { errors },
     reset,
   } = useForm<FormData>({
-    defaultValues: { email: '', password: '' },
-    mode: 'onBlur',
-  })
+    defaultValues: { email: "", password: "" },
+    mode: "onBlur",
+  });
 
   const mutation = useMutation({
     mutationFn: registerUser,
     onSuccess: (data) => {
-      setSuccessMsg(data.message ?? 'Registration successful')
-      reset()
+      setSuccessMsg(data.message ?? "Registration successful");
+      reset();
     },
-  })
+  });
 
   const onSubmit = (values: FormData) => {
-    setSuccessMsg(null)
-    mutation.reset()
-    mutation.mutate(values)
-  }
+    setSuccessMsg(null);
+    mutation.reset();
+    mutation.mutate(values);
+  };
 
-  const handleGoogleSuccess = async (credentialResponse: CredentialResponse) => {
+  const handleGoogleSuccess = async (
+    credentialResponse: CredentialResponse
+  ) => {
     if (credentialResponse.credential) {
-      await googleLogin(credentialResponse.credential)
+      await googleLogin(credentialResponse.credential);
     }
-  }
+  };
 
   const handleGoogleError = () => {
-    console.error('Google Sign Up Failed')
-  }
+    console.error("Google Sign Up Failed");
+  };
 
   const apiError =
     mutation.isError &&
     ((mutation.error as any)?.response?.data?.message ||
       (mutation.error as Error).message ||
-      'Registration failed')
+      "Registration failed");
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4">
@@ -64,8 +66,14 @@ export default function SignUp() {
           <CardTitle>Create your account</CardTitle>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleSubmit(onSubmit)} noValidate className="space-y-4">
-            {apiError && <Alert variant="destructive">{String(apiError)}</Alert>}
+          <form
+            onSubmit={handleSubmit(onSubmit)}
+            noValidate
+            className="space-y-4"
+          >
+            {apiError && (
+              <Alert variant="destructive">{String(apiError)}</Alert>
+            )}
             {authError && <Alert variant="destructive">{authError}</Alert>}
             {successMsg && <Alert variant="success">{successMsg}</Alert>}
 
@@ -76,17 +84,19 @@ export default function SignUp() {
                 type="email"
                 placeholder="you@example.com"
                 autoComplete="email"
-                aria-invalid={errors.email ? 'true' : 'false'}
-                {...register('email', {
-                  required: 'Email is required',
+                aria-invalid={errors.email ? "true" : "false"}
+                {...register("email", {
+                  required: "Email is required",
                   pattern: {
                     value: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
-                    message: 'Please provide a valid email address',
+                    message: "Please provide a valid email address",
                   },
                 })}
               />
               {errors.email && (
-                <p className="text-sm text-red-600" role="alert">{errors.email.message}</p>
+                <p className="text-sm text-red-600" role="alert">
+                  {errors.email.message}
+                </p>
               )}
             </div>
 
@@ -97,22 +107,28 @@ export default function SignUp() {
                 type="password"
                 autoComplete="new-password"
                 placeholder="••••••••"
-                aria-invalid={errors.password ? 'true' : 'false'}
-                {...register('password', {
-                  required: 'Password is required',
+                aria-invalid={errors.password ? "true" : "false"}
+                {...register("password", {
+                  required: "Password is required",
                   minLength: {
                     value: 6,
-                    message: 'Password must be at least 6 characters long',
+                    message: "Password must be at least 6 characters long",
                   },
                 })}
               />
               {errors.password && (
-                <p className="text-sm text-red-600" role="alert">{errors.password.message}</p>
+                <p className="text-sm text-red-600" role="alert">
+                  {errors.password.message}
+                </p>
               )}
             </div>
 
-            <Button type="submit" disabled={mutation.isPending} className="w-full">
-              {mutation.isPending ? 'Creating account…' : 'Sign Up'}
+            <Button
+              type="submit"
+              disabled={mutation.isPending}
+              className="w-full"
+            >
+              {mutation.isPending ? "Creating account…" : "Sign Up"}
             </Button>
 
             <div className="relative my-6">
@@ -120,7 +136,9 @@ export default function SignUp() {
                 <span className="w-full border-t border-gray-300" />
               </div>
               <div className="relative flex justify-center text-sm">
-                <span className="bg-white px-2 text-gray-500">Or continue with</span>
+                <span className="bg-white px-2 text-gray-500">
+                  Or continue with
+                </span>
               </div>
             </div>
 
@@ -138,8 +156,11 @@ export default function SignUp() {
             </div>
 
             <p className="text-center text-sm text-gray-600">
-              Already have an account?{' '}
-              <Link to="/login" className="font-medium underline underline-offset-4">
+              Already have an account?{" "}
+              <Link
+                to="/login"
+                className="font-medium underline underline-offset-4"
+              >
                 Log in
               </Link>
             </p>
@@ -147,5 +168,5 @@ export default function SignUp() {
         </CardContent>
       </Card>
     </div>
-  )
+  );
 }
