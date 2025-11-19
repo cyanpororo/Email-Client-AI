@@ -32,6 +32,12 @@ export class AuthService {
         throw new UnauthorizedException('Invalid credentials');
       }
 
+      // Prevent bcrypt.compare from receiving null/undefined when account has no password
+      if (!user.password) {
+        // Keep response generic for security (do not reveal account type)
+        throw new UnauthorizedException('Invalid credentials');
+      }
+
       const isPasswordValid = await bcrypt.compare(password, user.password);
       if (!isPasswordValid) {
         throw new UnauthorizedException('Invalid credentials');
