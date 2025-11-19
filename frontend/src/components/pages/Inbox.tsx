@@ -12,14 +12,16 @@ export default function Inbox() {
   const [selectedEmails, setSelectedEmails] = useState<Set<string>>(new Set());
   const [showCompose, setShowCompose] = useState(false);
   const [isMobileView, setIsMobileView] = useState(false);
-  const [mobileView, setMobileView] = useState<"list" | "detail">("list");
+  const [mobileView, setMobileView] = useState<"folders" | "list" | "detail">(
+    "list"
+  );
   const queryClient = useQueryClient();
   const isOnline = useOnlineStatus();
 
   // Responsive handling
   useEffect(() => {
     const handleResize = () => {
-      setIsMobileView(window.innerWidth < 768);
+      setIsMobileView(window.innerWidth < 1024);
     };
     handleResize();
     window.addEventListener("resize", handleResize);
@@ -271,11 +273,51 @@ export default function Inbox() {
     <>
       <OfflineIndicator />
       {/* Inbox Header */}
-      <div className="bg-white border-b border-gray-200 px-6 py-4">
+      <div className="bg-white border-b border-gray-200 px-3 md:px-6 py-3 md:py-4">
         <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-bold text-gray-900">Inbox</h1>
+          {isMobileView && mobileView !== "list" ? (
+            <div className="flex items-center gap-1">
+              <Button
+                variant="ghost"
+                onClick={() => {
+                  if (mobileView === "detail") {
+                    setMobileView("list");
+                  } else if (mobileView === "folders") {
+                    setMobileView("list");
+                  }
+                }}
+                aria-label="Back"
+                className="p-1.5 h-8"
+              >
+                ← Back
+              </Button>
+              <h1 className="text-lg md:text-xl font-bold text-gray-900 truncate">
+                {mobileView === "detail" && selectedEmail
+                  ? "Email"
+                  : mobileView === "folders"
+                  ? "Folders"
+                  : "Inbox"}
+              </h1>
+            </div>
+          ) : (
+            <>
+              {isMobileView && (
+                <Button
+                  variant="ghost"
+                  onClick={() => setMobileView("folders")}
+                  aria-label="Show folders"
+                  className="p-1.5 h-8 mr-1"
+                >
+                  ☰
+                </Button>
+              )}
+              <h1 className="text-lg md:text-2xl font-bold text-gray-900">
+                Inbox
+              </h1>
+            </>
+          )}
           <div className="flex items-center gap-4">
-            <div className="relative">
+            <div className="relative hidden lg:block">
               <input
                 type="text"
                 placeholder="Search emails..."
@@ -288,12 +330,12 @@ export default function Inbox() {
       </div>
       <div className="h-[calc(100vh-8rem)] flex overflow-hidden bg-gray-50">
         {/* Column 1: Mailboxes/Folders */}
-        {(!isMobileView || mobileView === "list") && (
-          <div className="w-full md:w-64 bg-white border-r border-gray-200 flex flex-col">
-            <div className="p-4 border-b border-gray-200">
+        {(!isMobileView || mobileView === "folders") && (
+          <div className="w-full lg:w-64 bg-white border-r border-gray-200 flex flex-col">
+            <div className="p-3 md:p-4 border-b border-gray-200">
               <Button
                 onClick={() => setShowCompose(true)}
-                className="w-full"
+                className="w-full text-sm md:text-base"
                 aria-label="Compose new email"
               >
                 ✏️ Compose
@@ -310,7 +352,7 @@ export default function Inbox() {
                   <button
                     key={mailbox.id}
                     onClick={() => handleMailboxClick(mailbox.id)}
-                    className={`w-full text-left px-4 py-3 rounded-lg mb-1 transition-colors ${
+                    className={`w-full text-left px-3 md:px-4 py-2.5 md:py-3 rounded-lg mb-1 transition-colors text-sm md:text-base ${
                       selectedMailboxId === mailbox.id
                         ? "bg-blue-50 text-blue-700 font-medium"
                         : "hover:bg-gray-100 text-gray-700"
@@ -338,7 +380,7 @@ export default function Inbox() {
               </nav>
             </div>
 
-            <div className="p-4 border-t border-gray-200 text-xs text-gray-500">
+            <div className="hidden lg:block p-4 border-t border-gray-200 text-xs text-gray-500">
               <p>Keyboard shortcuts:</p>
               <ul className="mt-2 space-y-1">
                 <li>↑/k: Previous email</li>
@@ -353,9 +395,9 @@ export default function Inbox() {
 
         {/* Column 2: Email List */}
         {(!isMobileView || mobileView === "list") && (
-          <div className="w-full md:w-2/5 bg-white border-r border-gray-200 flex flex-col">
+          <div className="w-full lg:w-2/5 bg-white border-r border-gray-200 flex flex-col">
             {/* Action bar */}
-            <div className="p-4 border-b border-gray-200 flex items-center gap-2 flex-wrap">
+            <div className="p-2 md:p-4 border-b border-gray-200 flex items-center gap-1.5 md:gap-2 flex-wrap">
               <input
                 type="checkbox"
                 checked={
@@ -374,17 +416,21 @@ export default function Inbox() {
                   })
                 }
                 aria-label="Refresh email list"
-                className={emailsFetching ? "animate-spin" : ""}
+                className={`h-7 md:h-8 px-2 ${
+                  emailsFetching ? "animate-spin" : ""
+                }`}
               >
                 🔄
               </Button>
               {emailsFetching && (
-                <span className="text-xs text-blue-600 animate-pulse">
+                <span className="text-xs text-blue-600 animate-pulse hidden md:inline">
                   Syncing...
                 </span>
               )}
               {!isOnline && emails.length > 0 && (
-                <span className="text-xs text-amber-600">📦 Cached</span>
+                <span className="text-xs text-amber-600">
+                  📦 <span className="hidden sm:inline">Cached</span>
+                </span>
               )}
               {selectedEmails.size > 0 && (
                 <>
@@ -393,19 +439,22 @@ export default function Inbox() {
                     size="sm"
                     onClick={() => markSelectedAsReadMutation.mutate()}
                     disabled={markSelectedAsReadMutation.isPending}
+                    className="h-7 md:h-8 px-2 text-xs md:text-sm"
                   >
-                    ✓ Mark Read
+                    ✓ <span className="hidden sm:inline">Mark Read</span>
                   </Button>
                   <Button
                     variant="ghost"
                     size="sm"
                     onClick={() => deleteSelectedMutation.mutate()}
                     disabled={deleteSelectedMutation.isPending}
+                    className="h-7 md:h-8 px-2 text-xs md:text-sm"
                   >
-                    🗑️ Delete
+                    🗑️ <span className="hidden sm:inline">Delete</span>
                   </Button>
-                  <span className="text-sm text-gray-600">
-                    {selectedEmails.size} selected
+                  <span className="text-xs md:text-sm text-gray-600">
+                    {selectedEmails.size}{" "}
+                    <span className="hidden sm:inline">selected</span>
                   </span>
                 </>
               )}
@@ -431,14 +480,14 @@ export default function Inbox() {
                   <div
                     key={email.id}
                     role="listitem"
-                    className={`border-b border-gray-100 p-4 cursor-pointer transition-colors ${
+                    className={`border-b border-gray-100 p-2.5 md:p-4 cursor-pointer transition-colors ${
                       selectedEmailId === email.id
                         ? "bg-blue-50 border-l-4 border-l-blue-600"
                         : "hover:bg-gray-50"
                     } ${!email.isRead ? "bg-blue-50/30" : ""}`}
                     onClick={() => handleEmailClick(email)}
                   >
-                    <div className="flex items-start gap-3">
+                    <div className="flex items-start gap-2 md:gap-3">
                       <input
                         type="checkbox"
                         checked={selectedEmails.has(email.id)}
@@ -462,20 +511,20 @@ export default function Inbox() {
                         {email.isStarred ? "⭐" : "☆"}
                       </button>
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between mb-1">
+                        <div className="flex items-center justify-between mb-0.5 md:mb-1">
                           <span
-                            className={`font-medium truncate ${
+                            className={`text-sm md:text-base font-medium truncate ${
                               !email.isRead ? "text-gray-900" : "text-gray-700"
                             }`}
                           >
                             {email.from.name}
                           </span>
-                          <span className="text-xs text-gray-500 ml-2 flex-shrink-0">
+                          <span className="text-[10px] md:text-xs text-gray-500 ml-1 md:ml-2 flex-shrink-0">
                             {formatTimestamp(email.timestamp)}
                           </span>
                         </div>
                         <div
-                          className={`text-sm truncate mb-1 ${
+                          className={`text-xs md:text-sm truncate mb-0.5 md:mb-1 ${
                             !email.isRead
                               ? "font-semibold text-gray-900"
                               : "text-gray-600"
@@ -483,12 +532,15 @@ export default function Inbox() {
                         >
                           {email.subject}
                         </div>
-                        <div className="text-sm text-gray-500 truncate">
+                        <div className="text-xs md:text-sm text-gray-500 truncate">
                           {email.preview}
                         </div>
                         {email.hasAttachments && (
-                          <div className="text-xs text-gray-400 mt-1">
-                            📎 Has attachments
+                          <div className="text-[10px] md:text-xs text-gray-400 mt-0.5 md:mt-1">
+                            📎{" "}
+                            <span className="hidden sm:inline">
+                              Has attachments
+                            </span>
                           </div>
                         )}
                       </div>
@@ -503,18 +555,6 @@ export default function Inbox() {
         {/* Column 3: Email Detail */}
         {(!isMobileView || mobileView === "detail") && (
           <div className="flex-1 bg-white flex flex-col">
-            {isMobileView && mobileView === "detail" && (
-              <div className="p-4 border-b border-gray-200">
-                <Button
-                  variant="ghost"
-                  onClick={() => setMobileView("list")}
-                  aria-label="Back to email list"
-                >
-                  ← Back
-                </Button>
-              </div>
-            )}
-
             {!selectedEmail ? (
               <div className="flex-1 flex items-center justify-center text-gray-400">
                 <div className="text-center">
@@ -526,9 +566,9 @@ export default function Inbox() {
             ) : (
               <>
                 {/* Email header */}
-                <div className="border-b border-gray-200 p-6">
-                  <div className="flex items-start justify-between mb-4">
-                    <h1 className="text-2xl font-bold text-gray-900 flex-1">
+                <div className="border-b border-gray-200 p-3 md:p-6">
+                  <div className="flex items-start justify-between mb-3 md:mb-4">
+                    <h1 className="text-lg md:text-2xl font-bold text-gray-900 flex-1 pr-2">
                       {selectedEmail.subject}
                     </h1>
                     <button
@@ -585,23 +625,31 @@ export default function Inbox() {
                   </div>
 
                   {/* Action buttons */}
-                  <div className="flex gap-2 mt-4">
-                    <Button onClick={() => console.log("Reply")}>Reply</Button>
+                  <div className="flex flex-wrap gap-1.5 md:gap-2 mt-3 md:mt-4">
+                    <Button
+                      onClick={() => console.log("Reply")}
+                      className="text-xs md:text-sm h-8 md:h-9"
+                    >
+                      Reply
+                    </Button>
                     <Button
                       variant="outline"
                       onClick={() => console.log("Reply All")}
+                      className="text-xs md:text-sm h-8 md:h-9"
                     >
                       Reply All
                     </Button>
                     <Button
                       variant="outline"
                       onClick={() => console.log("Forward")}
+                      className="text-xs md:text-sm h-8 md:h-9"
                     >
                       Forward
                     </Button>
                     <Button
                       variant="outline"
                       onClick={() => deleteMutation.mutate(selectedEmail.id)}
+                      className="text-xs md:text-sm h-8 md:h-9"
                     >
                       Delete
                     </Button>
@@ -612,6 +660,7 @@ export default function Inbox() {
                           ? markAsUnreadMutation.mutate(selectedEmail.id)
                           : markAsReadMutation.mutate(selectedEmail.id)
                       }
+                      className="text-xs md:text-sm h-8 md:h-9"
                     >
                       Mark as {selectedEmail.isRead ? "Unread" : "Read"}
                     </Button>
@@ -619,7 +668,7 @@ export default function Inbox() {
                 </div>
 
                 {/* Email body */}
-                <div className="flex-1 overflow-y-auto p-6">
+                <div className="flex-1 overflow-y-auto p-3 md:p-6">
                   <div
                     className="prose max-w-none"
                     dangerouslySetInnerHTML={{ __html: selectedEmail.body }}
@@ -669,14 +718,14 @@ export default function Inbox() {
 
         {/* Compose Modal */}
         {showCompose && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-            <Card className="w-full max-w-2xl max-h-[90vh] overflow-auto">
-              <div className="p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-xl font-bold">New Message</h2>
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-2 md:p-4">
+            <Card className="w-full max-w-2xl max-h-[95vh] md:max-h-[90vh] overflow-auto">
+              <div className="p-4 md:p-6">
+                <div className="flex items-center justify-between mb-3 md:mb-4">
+                  <h2 className="text-lg md:text-xl font-bold">New Message</h2>
                   <button
                     onClick={() => setShowCompose(false)}
-                    className="text-gray-500 hover:text-gray-700"
+                    className="text-gray-500 hover:text-gray-700 text-xl"
                     aria-label="Close compose window"
                   >
                     ✕
@@ -684,7 +733,7 @@ export default function Inbox() {
                 </div>
 
                 <form
-                  className="space-y-4"
+                  className="space-y-3 md:space-y-4"
                   onSubmit={(e) => {
                     e.preventDefault();
                     console.log("Send email");
@@ -692,34 +741,34 @@ export default function Inbox() {
                   }}
                 >
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block text-xs md:text-sm font-medium text-gray-700 mb-1">
                       To:
                     </label>
                     <input
                       type="email"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className="w-full px-3 py-2 text-sm md:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       placeholder="recipient@example.com"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block text-xs md:text-sm font-medium text-gray-700 mb-1">
                       Subject:
                     </label>
                     <input
                       type="text"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className="w-full px-3 py-2 text-sm md:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       placeholder="Email subject"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block text-xs md:text-sm font-medium text-gray-700 mb-1">
                       Message:
                     </label>
                     <textarea
-                      rows={10}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      rows={8}
+                      className="w-full px-3 py-2 text-sm md:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       placeholder="Write your message..."
                     />
                   </div>
@@ -729,10 +778,16 @@ export default function Inbox() {
                       type="button"
                       variant="outline"
                       onClick={() => setShowCompose(false)}
+                      className="text-xs md:text-sm h-8 md:h-9"
                     >
                       Cancel
                     </Button>
-                    <Button type="submit">Send</Button>
+                    <Button
+                      type="submit"
+                      className="text-xs md:text-sm h-8 md:h-9"
+                    >
+                      Send
+                    </Button>
                   </div>
                 </form>
               </div>
