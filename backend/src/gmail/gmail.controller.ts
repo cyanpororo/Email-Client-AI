@@ -24,8 +24,9 @@ export class GmailController {
      */
     @Get('auth')
     @UseGuards(JwtAuthGuard)
-    getAuthUrl() {
-        const authUrl = this.gmailService.getAuthUrl();
+    getAuthUrl(@Request() req) {
+        // Pass userId in state parameter for callback
+        const authUrl = this.gmailService.getAuthUrl(req.user.userId);
         return { authUrl };
     }
 
@@ -39,9 +40,12 @@ export class GmailController {
         @Res() res: Response,
     ) {
         try {
-            // In production, validate state parameter to prevent CSRF
-            // For now, we'll extract userId from state
-            const userId = state; // You should encode/decode this properly
+            // Validate state parameter (userId)
+            if (!state || state === 'undefined' || state === 'null') {
+                throw new Error('Invalid state parameter. Please try connecting Gmail again.');
+            }
+
+            const userId = state;
 
             await this.gmailService.handleCallback(code, userId);
 
@@ -49,8 +53,9 @@ export class GmailController {
             const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
             res.redirect(`${frontendUrl}/inbox?gmail=connected`);
         } catch (error) {
+            console.error('Gmail callback error:', error);
             const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
-            res.redirect(`${frontendUrl}/inbox?gmail=error`);
+            res.redirect(`${frontendUrl}/inbox?gmail=error&message=${encodeURIComponent(error.message)}`);
         }
     }
 
@@ -60,7 +65,7 @@ export class GmailController {
     @Post('connect')
     @UseGuards(JwtAuthGuard)
     async connect(@Request() req, @Body() gmailAuthDto: GmailAuthDto) {
-        return this.gmailService.handleCallback(gmailAuthDto.code, req.user.sub);
+        return this.gmailService.handleCallback(gmailAuthDto.code, req.user.userId);
     }
 
     /**
@@ -69,7 +74,7 @@ export class GmailController {
     @Post('disconnect')
     @UseGuards(JwtAuthGuard)
     async disconnect(@Request() req) {
-        return this.gmailService.disconnect(req.user.sub);
+        return this.gmailService.disconnect(req.user.userId);
     }
 
     /**
@@ -78,7 +83,7 @@ export class GmailController {
     @Get('mailboxes')
     @UseGuards(JwtAuthGuard)
     async getMailboxes(@Request() req) {
-        return this.gmailService.getLabels(req.user.sub);
+        return this.gmailService.getLabels(req.user.userId);
     }
 
     /**
@@ -93,7 +98,7 @@ export class GmailController {
         @Query('pageToken') pageToken?: string,
     ) {
         const maxResults = limit ? parseInt(limit) : 50;
-        return this.gmailService.getEmails(req.user.sub, mailboxId, maxResults, pageToken);
+        return this.gmailService.getEmails(req.user.userId, mailboxId, maxResults, pageToken);
     }
 
     /**
@@ -102,7 +107,7 @@ export class GmailController {
     @Get('emails/:id')
     @UseGuards(JwtAuthGuard)
     async getEmail(@Request() req, @Param('id') emailId: string) {
-        return this.gmailService.getEmailById(req.user.sub, emailId);
+        return this.gmailService.getEmailById(req.user.userId, emailId);
     }
 
     /**
@@ -111,7 +116,7 @@ export class GmailController {
     @Post('emails/send')
     @UseGuards(JwtAuthGuard)
     async sendEmail(@Request() req, @Body() sendEmailDto: SendEmailDto) {
-        return this.gmailService.sendEmail(req.user.sub, sendEmailDto);
+        return this.gmailService.sendEmail(req.user.userId, sendEmailDto);
     }
 
     /**
@@ -125,14 +130,14 @@ export class GmailController {
         @Body() sendEmailDto: SendEmailDto,
     ) {
         // Get original email to set In-Reply-To and References headers
-        const originalEmail = await this.gmailService.getEmailById(req.user.sub, emailId);
+        const originalEmail = await this.gmailService.getEmailById(req.user.userId, emailId);
 
         if (originalEmail) {
             sendEmailDto.inReplyTo = emailId;
             sendEmailDto.references = emailId;
         }
 
-        return this.gmailService.sendEmail(req.user.sub, sendEmailDto);
+        return this.gmailService.sendEmail(req.user.userId, sendEmailDto);
     }
 
     /**
@@ -145,7 +150,7 @@ export class GmailController {
         @Param('id') emailId: string,
         @Body() modifyDto: ModifyEmailDto,
     ) {
-        return this.gmailService.modifyEmail(req.user.sub, emailId, modifyDto);
+        return this.gmailService.modifyEmail(req.user.userId, emailId, modifyDto);
     }
 
     /**
@@ -154,7 +159,7 @@ export class GmailController {
     @Post('emails/:id/read')
     @UseGuards(JwtAuthGuard)
     async markAsRead(@Request() req, @Param('id') emailId: string) {
-        return this.gmailService.modifyEmail(req.user.sub, emailId, {
+        return this.gmailService.modifyEmail(req.user.userId, emailId, {
             removeLabelIds: ['UNREAD'],
         });
     }
@@ -165,7 +170,7 @@ export class GmailController {
     @Post('emails/:id/unread')
     @UseGuards(JwtAuthGuard)
     async markAsUnread(@Request() req, @Param('id') emailId: string) {
-        return this.gmailService.modifyEmail(req.user.sub, emailId, {
+        return this.gmailService.modifyEmail(req.user.userId, emailId, {
             addLabelIds: ['UNREAD'],
         });
     }
@@ -176,7 +181,7 @@ export class GmailController {
     @Post('emails/:id/star')
     @UseGuards(JwtAuthGuard)
     async toggleStar(@Request() req, @Param('id') emailId: string, @Body('starred') starred: boolean) {
-        return this.gmailService.modifyEmail(req.user.sub, emailId, {
+        return this.gmailService.modifyEmail(req.user.userId, emailId, {
             addLabelIds: starred ? ['STARRED'] : undefined,
             removeLabelIds: !starred ? ['STARRED'] : undefined,
         });
@@ -188,7 +193,7 @@ export class GmailController {
     @Post('emails/:id/archive')
     @UseGuards(JwtAuthGuard)
     async archiveEmail(@Request() req, @Param('id') emailId: string) {
-        return this.gmailService.modifyEmail(req.user.sub, emailId, {
+        return this.gmailService.modifyEmail(req.user.userId, emailId, {
             removeLabelIds: ['INBOX'],
         });
     }
@@ -199,7 +204,7 @@ export class GmailController {
     @Post('emails/:id/delete')
     @UseGuards(JwtAuthGuard)
     async deleteEmail(@Request() req, @Param('id') emailId: string) {
-        return this.gmailService.modifyEmail(req.user.sub, emailId, {
+        return this.gmailService.modifyEmail(req.user.userId, emailId, {
             addLabelIds: ['TRASH'],
             removeLabelIds: ['INBOX'],
         });
@@ -217,7 +222,7 @@ export class GmailController {
         @Res() res: Response,
     ) {
         const attachment = await this.gmailService.getAttachment(
-            req.user.sub,
+            req.user.userId,
             messageId,
             attachmentId,
         );

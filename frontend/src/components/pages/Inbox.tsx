@@ -1,20 +1,46 @@
 import { useState, useEffect, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import * as emailApi from "../../api/email";
-import type { Email } from "../../api/email";
+import * as gmailApi from "../../api/gmail";
 import { Card } from "../ui/card";
 import { Button } from "../ui/button";
 import { OfflineIndicator, useOnlineStatus } from "../OfflineIndicator";
 
+// Type for mapped email (UI-compatible format)
+type Email = {
+  id: string;
+  mailboxId: string;
+  from: { name: string; email: string };
+  to: Array<{ name: string; email: string }>;
+  cc?: Array<{ name: string; email: string }>;
+  subject: string;
+  preview: string;
+  body: string;
+  timestamp: string;
+  isRead: boolean;
+  isStarred: boolean;
+  hasAttachments: boolean;
+  attachments?: Array<{ id: string; name: string; size: number; type: string }>;
+};
+
 export default function Inbox() {
-  const [selectedMailboxId, setSelectedMailboxId] = useState("inbox");
+  const [selectedMailboxId, setSelectedMailboxId] = useState("INBOX");
   const [selectedEmailId, setSelectedEmailId] = useState<string | null>(null);
   const [selectedEmails, setSelectedEmails] = useState<Set<string>>(new Set());
   const [showCompose, setShowCompose] = useState(false);
+  const [showGmailConnect, setShowGmailConnect] = useState(false);
   const [isMobileView, setIsMobileView] = useState(false);
   const [mobileView, setMobileView] = useState<"folders" | "list" | "detail">(
     "list"
   );
+
+  // Compose form state
+  const [composeMode, setComposeMode] = useState<"new" | "reply" | "forward">("new");
+  const [composeTo, setComposeTo] = useState("");
+  const [composeCc, setComposeCc] = useState("");
+  const [composeSubject, setComposeSubject] = useState("");
+  const [composeBody, setComposeBody] = useState("");
+  const [replyToEmailId, setReplyToEmailId] = useState<string | null>(null);
+
   const queryClient = useQueryClient();
   const isOnline = useOnlineStatus();
 
@@ -28,108 +54,218 @@ export default function Inbox() {
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
-  // Fetch mailboxes with offline-first strategy
-  const { data: mailboxes = [] } = useQuery({
-    queryKey: ["mailboxes"],
-    queryFn: emailApi.getMailboxes,
-    staleTime: 10 * 60 * 1000, // Mailboxes stay fresh for 10 minutes
-    gcTime: 30 * 60 * 1000, // Keep in cache for 30 minutes
-    refetchOnMount: false, // Don't refetch on component mount if data exists
-    refetchOnWindowFocus: true, // Refetch when window gains focus
+  // Fetch Gmail labels (mailboxes) - this determines if Gmail is connected
+  const {
+    data: gmailLabels = [],
+    error: labelsError,
+    isLoading: labelsLoading,
+  } = useQuery({
+    queryKey: ["gmailLabels"],
+    queryFn: gmailApi.getGmailLabels,
+    staleTime: 10 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
+    retry: 1,
   });
 
-  // Fetch emails for selected mailbox with stale-while-revalidate
+  // Map labels to mailbox format
+  const mailboxes = gmailLabels.map(gmailApi.mapLabelToMailbox);
+
+  // Check if Gmail is connected
+  const isGmailConnected = mailboxes.length > 0 && !labelsError;
+
+  // Show loading while checking Gmail connection (only on initial load, not refetch)
+  const isCheckingConnection = labelsLoading;
+
+  // Fetch emails for selected mailbox
   const {
-    data: emails = [],
+    data: gmailEmailsResponse,
     isLoading: emailsLoading,
     isFetching: emailsFetching,
+    error: emailsError,
   } = useQuery({
-    queryKey: ["emails", selectedMailboxId],
-    queryFn: () => emailApi.getEmailsByMailbox(selectedMailboxId),
-    staleTime: 3 * 60 * 1000, // Emails stay fresh for 3 minutes
-    gcTime: 15 * 60 * 1000, // Keep in cache for 15 minutes
-    refetchOnMount: false, // Use cached data first
-    refetchOnWindowFocus: true, // Refetch when window gains focus
+    queryKey: ["gmailEmails", selectedMailboxId],
+    queryFn: () => gmailApi.getGmailEmails(selectedMailboxId, 50),
+    enabled: isGmailConnected,
+    staleTime: 3 * 60 * 1000,
+    gcTime: 15 * 60 * 1000,
+    retry: 1,
   });
 
-  // Fetch selected email details with aggressive caching
-  const { data: selectedEmail } = useQuery({
-    queryKey: ["email", selectedEmailId],
+  // Map Gmail emails to UI format
+  const emails: Email[] = (gmailEmailsResponse?.emails || []).map(
+    gmailApi.mapGmailEmailToEmail
+  );
+
+  // Fetch selected email details
+  const { data: selectedGmailEmail } = useQuery({
+    queryKey: ["gmailEmail", selectedEmailId],
     queryFn: () =>
-      selectedEmailId ? emailApi.getEmailById(selectedEmailId) : null,
-    enabled: !!selectedEmailId,
-    staleTime: 5 * 60 * 1000, // Email content stays fresh for 5 minutes
-    gcTime: 20 * 60 * 1000, // Keep in cache for 20 minutes
+      selectedEmailId ? gmailApi.getGmailEmailById(selectedEmailId) : null,
+    enabled: !!selectedEmailId && isGmailConnected,
+    staleTime: 5 * 60 * 1000,
+    gcTime: 20 * 60 * 1000,
   });
+
+  const selectedEmail = selectedGmailEmail
+    ? gmailApi.mapGmailEmailToEmail(selectedGmailEmail)
+    : null;
 
   // Mark as read mutation
   const markAsReadMutation = useMutation({
-    mutationFn: emailApi.markEmailAsRead,
+    mutationFn: gmailApi.markGmailAsRead,
     onSuccess: () => {
       queryClient.invalidateQueries({
-        queryKey: ["emails", selectedMailboxId],
+        queryKey: ["gmailEmails", selectedMailboxId],
       });
-      queryClient.invalidateQueries({ queryKey: ["mailboxes"] });
+      queryClient.invalidateQueries({ queryKey: ["gmailLabels"] });
     },
   });
 
   // Mark as unread mutation
   const markAsUnreadMutation = useMutation({
-    mutationFn: emailApi.markEmailAsUnread,
+    mutationFn: gmailApi.markGmailAsUnread,
     onSuccess: () => {
       queryClient.invalidateQueries({
-        queryKey: ["emails", selectedMailboxId],
+        queryKey: ["gmailEmails", selectedMailboxId],
       });
-      queryClient.invalidateQueries({ queryKey: ["mailboxes"] });
+      queryClient.invalidateQueries({ queryKey: ["gmailLabels"] });
     },
   });
 
   // Toggle star mutation
   const toggleStarMutation = useMutation({
-    mutationFn: emailApi.toggleEmailStar,
+    mutationFn: ({ emailId, starred }: { emailId: string; starred: boolean }) =>
+      gmailApi.toggleGmailStar(emailId, starred),
     onSuccess: () => {
       queryClient.invalidateQueries({
-        queryKey: ["emails", selectedMailboxId],
+        queryKey: ["gmailEmails", selectedMailboxId],
       });
-      queryClient.invalidateQueries({ queryKey: ["email", selectedEmailId] });
+      queryClient.invalidateQueries({ queryKey: ["gmailEmail", selectedEmailId] });
     },
   });
 
   // Delete mutation
   const deleteMutation = useMutation({
-    mutationFn: emailApi.deleteEmail,
+    mutationFn: gmailApi.deleteGmailEmail,
     onSuccess: () => {
       setSelectedEmailId(null);
       queryClient.invalidateQueries({
-        queryKey: ["emails", selectedMailboxId],
+        queryKey: ["gmailEmails", selectedMailboxId],
       });
-      queryClient.invalidateQueries({ queryKey: ["mailboxes"] });
+      queryClient.invalidateQueries({ queryKey: ["gmailLabels"] });
     },
   });
 
-  // Bulk operations
+  // Bulk mark as read
   const markSelectedAsReadMutation = useMutation({
-    mutationFn: () => emailApi.markMultipleAsRead(Array.from(selectedEmails)),
+    mutationFn: async () => {
+      const promises = Array.from(selectedEmails).map((id) =>
+        gmailApi.markGmailAsRead(id)
+      );
+      await Promise.all(promises);
+    },
     onSuccess: () => {
       setSelectedEmails(new Set());
       queryClient.invalidateQueries({
-        queryKey: ["emails", selectedMailboxId],
+        queryKey: ["gmailEmails", selectedMailboxId],
       });
-      queryClient.invalidateQueries({ queryKey: ["mailboxes"] });
+      queryClient.invalidateQueries({ queryKey: ["gmailLabels"] });
     },
   });
 
+  // Bulk delete
   const deleteSelectedMutation = useMutation({
-    mutationFn: () => emailApi.deleteMultiple(Array.from(selectedEmails)),
+    mutationFn: async () => {
+      const promises = Array.from(selectedEmails).map((id) =>
+        gmailApi.deleteGmailEmail(id)
+      );
+      await Promise.all(promises);
+    },
     onSuccess: () => {
       setSelectedEmails(new Set());
       setSelectedEmailId(null);
       queryClient.invalidateQueries({
-        queryKey: ["emails", selectedMailboxId],
+        queryKey: ["gmailEmails", selectedMailboxId],
       });
-      queryClient.invalidateQueries({ queryKey: ["mailboxes"] });
+      queryClient.invalidateQueries({ queryKey: ["gmailLabels"] });
     },
   });
+
+  // Send email mutation
+  const sendEmailMutation = useMutation({
+    mutationFn: (emailData: {
+      to: string[];
+      cc?: string[];
+      subject: string;
+      body: string;
+      inReplyTo?: string;
+    }) => {
+      if (composeMode === "reply" && replyToEmailId) {
+        return gmailApi.replyToGmailEmail(replyToEmailId, emailData);
+      }
+      return gmailApi.sendGmailEmail(emailData);
+    },
+    onSuccess: () => {
+      setShowCompose(false);
+      resetComposeForm();
+      queryClient.invalidateQueries({ queryKey: ["gmailEmails", "SENT"] });
+      alert("Email sent successfully!");
+    },
+    onError: (error) => {
+      console.error("Failed to send email:", error);
+      alert("Failed to send email. Please try again.");
+    },
+  });
+
+  // Helper: Reset compose form
+  const resetComposeForm = () => {
+    setComposeMode("new");
+    setComposeTo("");
+    setComposeCc("");
+    setComposeSubject("");
+    setComposeBody("");
+    setReplyToEmailId(null);
+  };
+
+  // Helper: Open compose for reply
+  const handleReply = (email: Email) => {
+    setComposeMode("reply");
+    setReplyToEmailId(email.id);
+    setComposeTo(email.from.email);
+    setComposeSubject(email.subject.startsWith("Re:") ? email.subject : `Re: ${email.subject}`);
+    setComposeBody(`\n\n--- Original Message ---\nFrom: ${email.from.name} <${email.from.email}>\nDate: ${new Date(email.timestamp).toLocaleString()}\nSubject: ${email.subject}\n\n${email.body}`);
+    setShowCompose(true);
+  };
+
+  // Helper: Open compose for reply all
+  const handleReplyAll = (email: Email) => {
+    setComposeMode("reply");
+    setReplyToEmailId(email.id);
+    setComposeTo(email.from.email);
+    const ccEmails = email.to.filter(t => t.email !== email.from.email).map(t => t.email);
+    if (email.cc) {
+      ccEmails.push(...email.cc.map(c => c.email));
+    }
+    setComposeCc(ccEmails.join(", "));
+    setComposeSubject(email.subject.startsWith("Re:") ? email.subject : `Re: ${email.subject}`);
+    setComposeBody(`\n\n--- Original Message ---\nFrom: ${email.from.name} <${email.from.email}>\nDate: ${new Date(email.timestamp).toLocaleString()}\nSubject: ${email.subject}\n\n${email.body}`);
+    setShowCompose(true);
+  };
+
+  // Helper: Open compose for forward
+  const handleForward = (email: Email) => {
+    setComposeMode("forward");
+    setComposeTo("");
+    setComposeSubject(email.subject.startsWith("Fwd:") ? email.subject : `Fwd: ${email.subject}`);
+    setComposeBody(`\n\n--- Forwarded Message ---\nFrom: ${email.from.name} <${email.from.email}>\nDate: ${new Date(email.timestamp).toLocaleString()}\nTo: ${email.to.map(t => `${t.name} <${t.email}>`).join(", ")}\nSubject: ${email.subject}\n\n${email.body}`);
+    setShowCompose(true);
+  };
+
+  // Helper: Open new compose
+  const handleNewCompose = () => {
+    resetComposeForm();
+    setShowCompose(true);
+  };
 
   // Handle email selection
   const handleEmailClick = useCallback(
@@ -157,6 +293,36 @@ export default function Inbox() {
     },
     [isMobileView]
   );
+
+  // Handle Gmail connection
+  const handleConnectGmail = async () => {
+    try {
+      const authUrl = await gmailApi.getGmailAuthUrl();
+      window.location.href = authUrl;
+    } catch (error) {
+      console.error("Failed to get Gmail auth URL:", error);
+      alert("Failed to connect Gmail. Please try again.");
+    }
+  };
+
+  // Handle OAuth callback
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const gmailStatus = params.get('gmail');
+    const errorMessage = params.get('message');
+
+    if (gmailStatus === 'connected') {
+      // Gmail connected successfully, refresh the page to load emails
+      alert('Gmail connected successfully!');
+      // Remove query params and refresh
+      window.history.replaceState({}, '', '/inbox');
+      queryClient.invalidateQueries({ queryKey: ['gmailLabels'] });
+    } else if (gmailStatus === 'error') {
+      alert(`Failed to connect Gmail: ${errorMessage || 'Unknown error'}`);
+      // Remove query params
+      window.history.replaceState({}, '', '/inbox');
+    }
+  }, [queryClient]);
 
   // Keyboard navigation
   useEffect(() => {
@@ -190,13 +356,18 @@ export default function Inbox() {
         case "r":
           if (selectedEmail && !e.ctrlKey && !e.metaKey) {
             e.preventDefault();
-            console.log("Reply to:", selectedEmail.subject);
           }
           break;
         case "s":
           if (selectedEmailId && !e.ctrlKey && !e.metaKey) {
             e.preventDefault();
-            toggleStarMutation.mutate(selectedEmailId);
+            const email = emails.find((e) => e.id === selectedEmailId);
+            if (email) {
+              toggleStarMutation.mutate({
+                emailId: selectedEmailId,
+                starred: !email.isStarred,
+              });
+            }
           }
           break;
         case "Delete":
@@ -269,6 +440,39 @@ export default function Inbox() {
     }
   };
 
+  // Show loading while checking Gmail connection
+  if (isCheckingConnection) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-4"></div>
+          <p className="text-gray-600">Checking Gmail connection...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show Gmail connection prompt if not connected
+  if (!isGmailConnected && labelsError) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4">
+        <Card className="w-full max-w-md p-6">
+          <div className="text-center">
+            <div className="text-6xl mb-4">📧</div>
+            <h2 className="text-2xl font-bold mb-4">Connect Your Gmail</h2>
+            <p className="text-gray-600 mb-6">
+              To use this email client, you need to connect your Gmail account.
+              This will allow you to read, send, and manage your emails.
+            </p>
+            <Button onClick={handleConnectGmail} className="w-full">
+              Connect Gmail Account
+            </Button>
+          </div>
+        </Card>
+      </div>
+    );
+  }
+
   return (
     <>
       <OfflineIndicator />
@@ -295,8 +499,8 @@ export default function Inbox() {
                 {mobileView === "detail" && selectedEmail
                   ? "Email"
                   : mobileView === "folders"
-                  ? "Folders"
-                  : "Inbox"}
+                    ? "Folders"
+                    : "Inbox"}
               </h1>
             </div>
           ) : (
@@ -312,7 +516,7 @@ export default function Inbox() {
                 </Button>
               )}
               <h1 className="text-lg md:text-2xl font-bold text-gray-900">
-                Inbox
+                Gmail Inbox
               </h1>
             </>
           )}
@@ -334,7 +538,7 @@ export default function Inbox() {
           <div className="w-full lg:w-64 bg-white border-r border-gray-200 flex flex-col">
             <div className="p-3 md:p-4 border-b border-gray-200">
               <Button
-                onClick={() => setShowCompose(true)}
+                onClick={handleNewCompose}
                 className="w-full text-sm md:text-base"
                 aria-label="Compose new email"
               >
@@ -352,11 +556,10 @@ export default function Inbox() {
                   <button
                     key={mailbox.id}
                     onClick={() => handleMailboxClick(mailbox.id)}
-                    className={`w-full text-left px-3 md:px-4 py-2.5 md:py-3 rounded-lg mb-1 transition-colors text-sm md:text-base ${
-                      selectedMailboxId === mailbox.id
-                        ? "bg-blue-50 text-blue-700 font-medium"
-                        : "hover:bg-gray-100 text-gray-700"
-                    }`}
+                    className={`w-full text-left px-3 md:px-4 py-2.5 md:py-3 rounded-lg mb-1 transition-colors text-sm md:text-base ${selectedMailboxId === mailbox.id
+                      ? "bg-blue-50 text-blue-700 font-medium"
+                      : "hover:bg-gray-100 text-gray-700"
+                      }`}
                     aria-current={
                       selectedMailboxId === mailbox.id ? "page" : undefined
                     }
@@ -412,13 +615,12 @@ export default function Inbox() {
                 size="sm"
                 onClick={() =>
                   queryClient.invalidateQueries({
-                    queryKey: ["emails", selectedMailboxId],
+                    queryKey: ["gmailEmails", selectedMailboxId],
                   })
                 }
                 aria-label="Refresh email list"
-                className={`h-7 md:h-8 px-2 ${
-                  emailsFetching ? "animate-spin" : ""
-                }`}
+                className={`h-7 md:h-8 px-2 ${emailsFetching ? "animate-spin" : ""
+                  }`}
               >
                 🔄
               </Button>
@@ -470,6 +672,21 @@ export default function Inbox() {
                 <div className="p-8 text-center text-gray-500">
                   Loading emails...
                 </div>
+              ) : emailsError ? (
+                <div className="p-8 text-center text-red-500">
+                  <div className="text-4xl mb-2">⚠️</div>
+                  <p>Failed to load emails</p>
+                  <Button
+                    onClick={() =>
+                      queryClient.invalidateQueries({
+                        queryKey: ["gmailEmails", selectedMailboxId],
+                      })
+                    }
+                    className="mt-4"
+                  >
+                    Retry
+                  </Button>
+                </div>
               ) : emails.length === 0 ? (
                 <div className="p-8 text-center text-gray-500">
                   <div className="text-4xl mb-2">📭</div>
@@ -480,11 +697,10 @@ export default function Inbox() {
                   <div
                     key={email.id}
                     role="listitem"
-                    className={`border-b border-gray-100 p-2.5 md:p-4 cursor-pointer transition-colors ${
-                      selectedEmailId === email.id
-                        ? "bg-blue-50 border-l-4 border-l-blue-600"
-                        : "hover:bg-gray-50"
-                    } ${!email.isRead ? "bg-blue-50/30" : ""}`}
+                    className={`border-b border-gray-100 p-2.5 md:p-4 cursor-pointer transition-colors ${selectedEmailId === email.id
+                      ? "bg-blue-50 border-l-4 border-l-blue-600"
+                      : "hover:bg-gray-50"
+                      } ${!email.isRead ? "bg-blue-50/30" : ""}`}
                     onClick={() => handleEmailClick(email)}
                   >
                     <div className="flex items-start gap-2 md:gap-3">
@@ -501,7 +717,10 @@ export default function Inbox() {
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
-                          toggleStarMutation.mutate(email.id);
+                          toggleStarMutation.mutate({
+                            emailId: email.id,
+                            starred: !email.isStarred,
+                          });
                         }}
                         className="mt-1 text-lg"
                         aria-label={
@@ -513,22 +732,20 @@ export default function Inbox() {
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between mb-0.5 md:mb-1">
                           <span
-                            className={`text-sm md:text-base font-medium truncate ${
-                              !email.isRead ? "text-gray-900" : "text-gray-700"
-                            }`}
+                            className={`text-sm md:text-base font-medium truncate ${!email.isRead ? "text-gray-900" : "text-gray-700"
+                              }`}
                           >
-                            {email.from.name}
+                            {email.from.name || email.from.email}
                           </span>
                           <span className="text-[10px] md:text-xs text-gray-500 ml-1 md:ml-2 flex-shrink-0">
                             {formatTimestamp(email.timestamp)}
                           </span>
                         </div>
                         <div
-                          className={`text-xs md:text-sm truncate mb-0.5 md:mb-1 ${
-                            !email.isRead
-                              ? "font-semibold text-gray-900"
-                              : "text-gray-600"
-                          }`}
+                          className={`text-xs md:text-sm truncate mb-0.5 md:mb-1 ${!email.isRead
+                            ? "font-semibold text-gray-900"
+                            : "text-gray-600"
+                            }`}
                         >
                           {email.subject}
                         </div>
@@ -573,7 +790,10 @@ export default function Inbox() {
                     </h1>
                     <button
                       onClick={() =>
-                        toggleStarMutation.mutate(selectedEmail.id)
+                        toggleStarMutation.mutate({
+                          emailId: selectedEmail.id,
+                          starred: !selectedEmail.isStarred,
+                        })
                       }
                       className="text-2xl ml-4"
                       aria-label={
@@ -627,21 +847,21 @@ export default function Inbox() {
                   {/* Action buttons */}
                   <div className="flex flex-wrap gap-1.5 md:gap-2 mt-3 md:mt-4">
                     <Button
-                      onClick={() => console.log("Reply")}
+                      onClick={() => handleReply(selectedEmail)}
                       className="text-xs md:text-sm h-8 md:h-9"
                     >
                       Reply
                     </Button>
                     <Button
                       variant="outline"
-                      onClick={() => console.log("Reply All")}
+                      onClick={() => handleReplyAll(selectedEmail)}
                       className="text-xs md:text-sm h-8 md:h-9"
                     >
                       Reply All
                     </Button>
                     <Button
                       variant="outline"
-                      onClick={() => console.log("Forward")}
+                      onClick={() => handleForward(selectedEmail)}
                       className="text-xs md:text-sm h-8 md:h-9"
                     >
                       Forward
@@ -693,14 +913,18 @@ export default function Inbox() {
                                   {attachment.name}
                                 </div>
                                 <div className="text-xs text-gray-500">
-                                  {emailApi.formatFileSize(attachment.size)}
+                                  {gmailApi.formatFileSize(attachment.size)}
                                 </div>
                               </div>
                               <Button
                                 size="sm"
                                 variant="outline"
                                 onClick={() =>
-                                  console.log("Download:", attachment.name)
+                                  gmailApi.downloadGmailAttachment(
+                                    selectedEmail.id,
+                                    attachment.id,
+                                    attachment.name
+                                  )
                                 }
                               >
                                 Download
@@ -736,8 +960,16 @@ export default function Inbox() {
                   className="space-y-3 md:space-y-4"
                   onSubmit={(e) => {
                     e.preventDefault();
-                    console.log("Send email");
-                    setShowCompose(false);
+                    const toEmails = composeTo.split(',').map(e => e.trim()).filter(Boolean);
+                    const ccEmails = composeCc ? composeCc.split(',').map(e => e.trim()).filter(Boolean) : undefined;
+
+                    sendEmailMutation.mutate({
+                      to: toEmails,
+                      cc: ccEmails,
+                      subject: composeSubject,
+                      body: composeBody,
+                      inReplyTo: replyToEmailId || undefined,
+                    });
                   }}
                 >
                   <div>
@@ -745,9 +977,25 @@ export default function Inbox() {
                       To:
                     </label>
                     <input
-                      type="email"
+                      type="text"
+                      value={composeTo}
+                      onChange={(e) => setComposeTo(e.target.value)}
                       className="w-full px-3 py-2 text-sm md:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       placeholder="recipient@example.com"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs md:text-sm font-medium text-gray-700 mb-1">
+                      Cc: (optional)
+                    </label>
+                    <input
+                      type="text"
+                      value={composeCc}
+                      onChange={(e) => setComposeCc(e.target.value)}
+                      className="w-full px-3 py-2 text-sm md:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      placeholder="cc@example.com"
                     />
                   </div>
 
@@ -757,8 +1005,11 @@ export default function Inbox() {
                     </label>
                     <input
                       type="text"
+                      value={composeSubject}
+                      onChange={(e) => setComposeSubject(e.target.value)}
                       className="w-full px-3 py-2 text-sm md:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       placeholder="Email subject"
+                      required
                     />
                   </div>
 
@@ -768,8 +1019,11 @@ export default function Inbox() {
                     </label>
                     <textarea
                       rows={8}
+                      value={composeBody}
+                      onChange={(e) => setComposeBody(e.target.value)}
                       className="w-full px-3 py-2 text-sm md:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       placeholder="Write your message..."
+                      required
                     />
                   </div>
 
@@ -777,16 +1031,20 @@ export default function Inbox() {
                     <Button
                       type="button"
                       variant="outline"
-                      onClick={() => setShowCompose(false)}
+                      onClick={() => {
+                        setShowCompose(false);
+                        resetComposeForm();
+                      }}
                       className="text-xs md:text-sm h-8 md:h-9"
                     >
                       Cancel
                     </Button>
                     <Button
                       type="submit"
+                      disabled={sendEmailMutation.isPending}
                       className="text-xs md:text-sm h-8 md:h-9"
                     >
-                      Send
+                      {sendEmailMutation.isPending ? 'Sending...' : 'Send'}
                     </Button>
                   </div>
                 </form>

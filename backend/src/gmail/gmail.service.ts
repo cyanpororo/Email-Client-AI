@@ -25,7 +25,7 @@ export class GmailService {
     /**
      * Generate OAuth2 authorization URL
      */
-    getAuthUrl(): string {
+    getAuthUrl(userId: string): string {
         const oauth2Client = this.createOAuth2Client();
         const scopes = [
             'https://www.googleapis.com/auth/gmail.readonly',
@@ -38,48 +38,58 @@ export class GmailService {
             access_type: 'offline',
             scope: scopes,
             prompt: 'consent', // Force consent to get refresh token
+            state: userId, // Pass userId in state for callback
         });
     }
 
     /**
-     * Exchange authorization code for tokens and store refresh token
+     * Handle OAuth callback and store refresh token
      */
     async handleCallback(code: string, userId: string) {
         try {
             const oauth2Client = this.createOAuth2Client();
+
             const { tokens } = await oauth2Client.getToken(code);
 
             if (!tokens.refresh_token) {
-                throw new UnauthorizedException('No refresh token received. Please revoke access and try again.');
+                throw new InternalServerErrorException('No refresh token received from Google');
             }
 
-            // Store refresh token in database
             await this.storeRefreshToken(userId, tokens.refresh_token);
 
-            return {
-                message: 'Gmail connected successfully',
-                accessToken: tokens.access_token,
-            };
+            return { message: 'Gmail connected successfully' };
         } catch (error) {
-            console.error('Gmail callback error:', error);
-            throw new InternalServerErrorException('Failed to connect Gmail account');
+            console.error('[Gmail Service] handleCallback error:', error);
+            throw new InternalServerErrorException('Failed to connect Gmail');
         }
     }
 
     /**
-     * Store refresh token securely in database
+     * Store refresh token in database
      */
     private async storeRefreshToken(userId: string, refreshToken: string) {
-        const supabase = this.supabaseService.getClient();
+        try {
+            const supabase = this.supabaseService.getClient();
 
-        const { error } = await supabase
-            .from('users')
-            .update({ gmail_refresh_token: refreshToken })
-            .eq('id', userId);
+            const { data, error } = await supabase
+                .from('users')
+                .update({ gmail_refresh_token: refreshToken })
+                .eq('id', userId)
+                .select();
 
-        if (error) {
-            console.error('Failed to store refresh token:', error);
-            throw new InternalServerErrorException('Failed to store Gmail credentials');
+            if (error) {
+                console.error('[Gmail Service] Failed to store refresh token:', error);
+                throw new InternalServerErrorException('Failed to store Gmail credentials');
+            }
+
+            if (!data || data.length === 0) {
+                console.error('[Gmail Service] No rows updated. User might not exist:', userId);
+                throw new InternalServerErrorException('User not found');
+            }
+
+        } catch (error) {
+            console.error('[Gmail Service] storeRefreshToken error:', error);
+            throw error;
         }
     }
 
@@ -324,11 +334,33 @@ export class GmailService {
     }
 
     /**
-     * Disconnect Gmail account
+     * Disconnect Gmail account and revoke tokens
      */
     async disconnect(userId: string) {
         const supabase = this.supabaseService.getClient();
 
+        // Get refresh token before deleting
+        const { data: user } = await supabase
+            .from('users')
+            .select('gmail_refresh_token')
+            .eq('id', userId)
+            .single();
+
+        // Revoke the refresh token with Google
+        if (user?.gmail_refresh_token) {
+            try {
+                const client = this.createOAuth2Client();
+                client.setCredentials({
+                    refresh_token: user.gmail_refresh_token,
+                });
+                await client.revokeCredentials();
+            } catch (error) {
+                console.error('Failed to revoke Gmail token:', error);
+                // Continue with disconnect even if revocation fails
+            }
+        }
+
+        // Clear refresh token from database
         const { error } = await supabase
             .from('users')
             .update({ gmail_refresh_token: null })

@@ -1,456 +1,319 @@
-# G04-React-Email-Client — Gmail API Integration
+# React Email Client with Gmail API Integration
 
-A full-stack email client application with React frontend and NestJS backend, featuring real Gmail integration via OAuth2 and the Gmail API.
+A full-stack email client application built with React and NestJS that integrates with Gmail API for real email functionality.
 
----
+## Features
 
-## 🚀 Features
+✅ **Gmail API Integration** - Real email access via Google OAuth2
+✅ **Secure Authentication** - JWT-based auth with refresh token storage in database
+✅ **3-Column Responsive UI** - Mailboxes, email list, and email detail views
+✅ **Email Operations** - Read, send, reply, delete, star, and manage labels
+✅ **Attachment Support** - Download and view email attachments
+✅ **Keyboard Navigation** - Vim-style shortcuts (j/k, r, s, c, etc.)
+✅ **Offline Support** - Cached data with stale-while-revalidate strategy
+✅ **Token Management** - Automatic token refresh with concurrency protection
+✅ **Mobile Responsive** - Optimized for all screen sizes
 
-- **Real Gmail Integration**: Connect your Gmail account via OAuth2
-- **Full Email Management**: Read, send, reply, archive, delete emails
-- **3-Column Responsive UI**: Modern email client interface
-- **Secure Authentication**: JWT-based auth with Google Sign-In
-- **Token Management**: Automatic refresh token handling
-- **Attachment Support**: View and download email attachments
-- **Label/Folder Management**: Access all Gmail labels and folders
-- **Keyboard Navigation**: Full keyboard shortcuts support
+## Architecture
 
----
+### Backend (NestJS)
+- **Gmail Service**: Handles OAuth2 flow and Gmail API operations
+- **Auth Service**: JWT-based authentication with Supabase
+- **Token Storage**: Refresh tokens stored securely in Supabase database
+- **API Endpoints**: RESTful API for frontend consumption
 
-## 📋 Prerequisites
+### Frontend (React + Vite)
+- **Gmail API Client**: Axios-based client with automatic token refresh
+- **React Query**: Data fetching with caching and background updates
+- **Responsive Design**: Mobile-first with 3-column desktop layout
+- **Offline-First**: IndexedDB caching via React Query
+
+## Prerequisites
 
 - Node.js 18+ and npm
-- Supabase account (for user database)
-- Google Cloud Platform account (for Gmail API)
+- Google Cloud Platform account
+- Supabase account (for database)
+- Gmail account for testing
 
----
+## Setup Instructions
 
-## 🛠️ Local Setup
-
-### 1. Clone the Repository
-
-```powershell
-git clone https://github.com/cyanpororo/G04-React-Email-Client.git
-cd G04-React-Email-Client
-```
-
-### 2. Database Setup (Supabase)
-
-1. Create a Supabase project at [supabase.com](https://supabase.com)
-2. Run this SQL in the Supabase SQL editor:
-
-```sql
--- Create users table
-CREATE TABLE users (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  email TEXT UNIQUE NOT NULL,
-  password TEXT,
-  google_id TEXT UNIQUE,
-  gmail_refresh_token TEXT,
-  role TEXT DEFAULT 'user',
-  created_at TIMESTAMP DEFAULT NOW()
-);
-
--- Add indexes
-CREATE INDEX idx_users_email ON users(email);
-CREATE INDEX idx_users_google_id ON users(google_id);
-```
-
-3. Copy your Supabase URL and anon key
-
-### 3. Google Cloud Setup
-
-#### Enable Gmail API
+### 1. Google Cloud Platform Setup
 
 1. Go to [Google Cloud Console](https://console.cloud.google.com/)
 2. Create a new project or select existing one
-3. Enable the Gmail API:
+3. Enable Gmail API:
    - Navigate to "APIs & Services" > "Library"
-   - Search for "Gmail API"
-   - Click "Enable"
+   - Search for "Gmail API" and click "Enable"
+4. Create OAuth 2.0 credentials:
+   - Go to "APIs & Services" > "Credentials"
+   - Click "Create Credentials" > "OAuth client ID"
+   - Choose "Web application"
+   - Add authorized redirect URIs:
+     - `http://localhost:3000/api/gmail/callback` (development)
+     - `https://your-backend-domain.com/api/gmail/callback` (production)
+   - Save the Client ID and Client Secret
 
-#### Create OAuth 2.0 Credentials
+### 2. Supabase Database Setup
 
-1. Go to "APIs & Services" > "Credentials"
-2. Click "Create Credentials" > "OAuth client ID"
-3. Configure OAuth consent screen (if not done):
-   - User Type: External (for testing) or Internal (for organization)
-   - App name: "G04 Email Client"
-   - User support email: your email
-   - Developer contact: your email
-   - Scopes: Add these Gmail scopes:
-     - `https://www.googleapis.com/auth/gmail.readonly`
-     - `https://www.googleapis.com/auth/gmail.modify`
-     - `https://www.googleapis.com/auth/gmail.send`
-     - `https://www.googleapis.com/auth/gmail.labels`
-4. Create OAuth Client ID:
-   - Application type: Web application
-   - Name: "G04 Email Client"
-   - Authorized redirect URIs:
-     - `http://localhost:3000/api/gmail/callback`
-     - `http://localhost:5173` (for frontend)
-5. Copy Client ID and Client Secret
+1. Create a Supabase project at [supabase.com](https://supabase.com)
+2. Add `gmail_refresh_token` column to users table:
 
-#### Add Test Users (Development)
-
-1. In OAuth consent screen settings
-2. Add test users (your Gmail accounts for testing)
-
-### 4. Backend Setup
-
-```powershell
-cd backend
-copy .env.example .env
+```sql
+ALTER TABLE users 
+ADD COLUMN gmail_refresh_token TEXT;
 ```
 
-Edit `backend/.env`:
+3. Get your Supabase URL and anon key from project settings
 
+### 3. Backend Setup
+
+1. Navigate to backend directory:
+```bash
+cd backend
+```
+
+2. Install dependencies:
+```bash
+npm install
+```
+
+3. Create `.env` file:
 ```env
-# Supabase Configuration
-SUPABASE_URL=https://your-project.supabase.co
-SUPABASE_ANON_KEY=your-supabase-anon-key
-
-# JWT Configuration
-JWT_ACCESS_SECRET=your-random-secret-key-min-32-chars
-JWT_REFRESH_SECRET=your-random-refresh-secret-min-32-chars
-
-# Application Configuration
+# Server
 PORT=3000
 NODE_ENV=development
 
-# Frontend URL for CORS
+# Frontend URL (for CORS)
 FRONTEND_URL=http://localhost:5173
 
-# Google OAuth Configuration (for app authentication)
-GOOGLE_CLIENT_ID=your-google-client-id.apps.googleusercontent.com
+# JWT Secret
+JWT_SECRET=your-super-secret-jwt-key-change-this-in-production
 
-# Gmail API OAuth2 Configuration (for email access)
-GMAIL_CLIENT_ID=your-gmail-oauth-client-id.apps.googleusercontent.com
-GMAIL_CLIENT_SECRET=your-gmail-oauth-client-secret
+# Supabase
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_KEY=your-supabase-anon-key
+
+# Gmail OAuth2
+GMAIL_CLIENT_ID=your-google-client-id.apps.googleusercontent.com
+GMAIL_CLIENT_SECRET=your-google-client-secret
 GMAIL_REDIRECT_URI=http://localhost:3000/api/gmail/callback
 ```
 
-Install and run:
-
-```powershell
-npm install
+4. Start development server:
+```bash
 npm run start:dev
 ```
 
 Backend will run on `http://localhost:3000`
 
-### 5. Frontend Setup
+### 4. Frontend Setup
 
-```powershell
-cd ../frontend
-copy .env.example .env
+1. Navigate to frontend directory:
+```bash
+cd frontend
 ```
 
-Edit `frontend/.env`:
+2. Install dependencies:
+```bash
+npm install
+```
 
+3. Create `.env` file:
 ```env
 VITE_API_URL=http://localhost:3000
 VITE_GOOGLE_CLIENT_ID=your-google-client-id.apps.googleusercontent.com
 ```
 
-Install and run:
-
-```powershell
-npm install
+4. Start development server:
+```bash
 npm run dev
 ```
 
 Frontend will run on `http://localhost:5173`
 
----
+## Usage
 
-## 🔐 How to Use
+### First Time Setup
 
-### 1. Sign Up / Login
+1. Open `http://localhost:5173` in your browser
+2. Sign up for an account or log in
+3. Click "Connect Gmail Account"
+4. Authorize the application to access your Gmail
+5. You'll be redirected back to the inbox with your real emails!
 
-- **Email & Password**: Create account with email/password
-- **Google Sign-In**: Sign in with Google account
+### Email Operations
 
-### 2. Connect Gmail
+- **Navigate**: Use ↑/↓ arrow keys or j/k (Vim-style)
+- **Compose**: Press 'c' or click "Compose" button
+- **Reply**: Press 'r' or click "Reply" button
+- **Star**: Press 's' or click the star icon
+- **Delete**: Press Delete key or click "Delete" button
+- **Mark Read/Unread**: Click the action button in email detail
 
-1. After logging in, click "Connect Gmail" button
-2. You'll be redirected to Google OAuth consent screen
-3. Grant permissions to access your Gmail
-4. You'll be redirected back to the app
-5. Your Gmail emails will now be displayed
-
-### 3. Use the Email Client
-
-- **Read Emails**: Click on any email to view details
-- **Send Email**: Click "Compose" button
-- **Reply**: Open an email and click "Reply"
-- **Archive/Delete**: Use action buttons in email detail
-- **Search**: Use search bar to filter emails
-- **Labels**: Click on labels in sidebar to filter
-
----
-
-## 🏗️ Architecture
-
-### Backend (NestJS)
-
-```
-backend/src/
-├── auth/              # Authentication (JWT, Google OAuth)
-├── gmail/             # Gmail API integration
-│   ├── dto/           # Data transfer objects
-│   ├── gmail.controller.ts
-│   ├── gmail.service.ts
-│   └── gmail.module.ts
-├── user/              # User management
-├── supabase/          # Supabase client
-└── main.ts            # Application entry
-```
-
-### Frontend (React + Vite)
-
-```
-frontend/src/
-├── api/               # API client (axios)
-├── components/        # React components
-├── contexts/          # React contexts (Auth)
-├── lib/               # Utilities
-└── App.tsx            # Main application
-```
-
----
-
-## 🔒 Security & Token Storage
-
-### Token Storage Strategy
-
-**Access Tokens** (Short-lived, 15 minutes):
-- Stored in-memory on frontend
-- Sent with every API request
-- Never persisted to localStorage
-
-**Refresh Tokens** (Long-lived, 7 days):
-- Stored in localStorage for app refresh tokens
-- **Gmail refresh tokens**: Stored server-side in database only
-- Used to obtain new access tokens
-
-**Gmail OAuth Tokens**:
-- Refresh token stored encrypted in database
-- Never exposed to frontend
-- Automatically refreshed by backend when needed
-
-### Why This Approach?
-
-✅ **Pros**:
-- Gmail refresh tokens never leave the server
-- Reduced XSS attack surface (access tokens in-memory)
-- Automatic token refresh
-- Works across browser tabs
-
-⚠️ **Tradeoffs**:
-- App refresh tokens in localStorage vulnerable to XSS
-- Alternative: HttpOnly cookies (requires CSRF protection)
-
-### Production Recommendations
-
-1. Use HTTPS only
-2. Implement Content Security Policy (CSP)
-3. Add rate limiting
-4. Enable CORS properly
-5. Use HttpOnly cookies for refresh tokens
-6. Implement CSRF tokens
-7. Add audit logging
-
----
-
-## 📡 API Endpoints
+## API Endpoints
 
 ### Authentication
-- `POST /api/auth/login` - Email/password login
-- `POST /api/auth/google` - Google Sign-In
-- `POST /api/auth/refresh` - Refresh access token
-- `GET /api/auth/profile` - Get user profile
+- `POST /api/auth/signup` - Create new account
+- `POST /api/auth/login` - Login with email/password
+- `POST /api/auth/google` - Login with Google
+- `POST /api/auth/logout` - Logout
 
-### Gmail Integration
-- `GET /api/gmail/auth` - Get Gmail OAuth URL
-- `GET /api/gmail/callback` - OAuth callback
-- `POST /api/gmail/connect` - Connect Gmail account
+### Gmail
+- `GET /api/gmail/auth` - Get OAuth authorization URL
+- `GET /api/gmail/callback` - OAuth callback handler
+- `POST /api/gmail/connect` - Connect Gmail with auth code
 - `POST /api/gmail/disconnect` - Disconnect Gmail
-- `GET /api/gmail/mailboxes` - Get labels/folders
-- `GET /api/gmail/mailboxes/:id/emails` - Get emails
-- `GET /api/gmail/emails/:id` - Get email details
-- `POST /api/gmail/emails/send` - Send email
+- `GET /api/gmail/mailboxes` - Get all labels/mailboxes
+- `GET /api/gmail/mailboxes/:id/emails` - Get emails from mailbox
+- `GET /api/gmail/emails/:id` - Get single email
+- `POST /api/gmail/emails/send` - Send new email
 - `POST /api/gmail/emails/:id/reply` - Reply to email
 - `POST /api/gmail/emails/:id/read` - Mark as read
+- `POST /api/gmail/emails/:id/unread` - Mark as unread
 - `POST /api/gmail/emails/:id/star` - Toggle star
-- `POST /api/gmail/emails/:id/archive` - Archive email
 - `POST /api/gmail/emails/:id/delete` - Delete email
-- `GET /api/gmail/emails/:msgId/attachments/:attId` - Get attachment
+- `GET /api/gmail/emails/:messageId/attachments/:attachmentId` - Download attachment
 
----
+## Security Considerations
 
-## 🚢 Deployment
+### Token Storage
+- **Access Tokens**: Stored in-memory on frontend (never in localStorage)
+- **Refresh Tokens**: Stored server-side in Supabase database
+- **Gmail Refresh Tokens**: Stored encrypted in database, never sent to frontend
 
-### Backend Deployment (Render/Railway/Heroku)
+### OAuth2 Flow
+1. Frontend requests auth URL from backend
+2. User authorizes on Google's servers
+3. Google redirects to backend callback with authorization code
+4. Backend exchanges code for tokens
+5. Backend stores refresh token in database
+6. Frontend receives session token only
 
-1. Create new web service
-2. Connect GitHub repository
-3. Set environment variables (all from `.env`)
-4. Update `GMAIL_REDIRECT_URI` to production URL
-5. Deploy
+### CORS & Security Headers
+- CORS configured to allow only frontend origin
+- Helmet.js for security headers
+- Rate limiting on authentication endpoints
+- JWT tokens with short expiration (15 minutes)
+
+## Deployment
+
+### Backend Deployment (Railway/Render/Heroku)
+
+1. Set environment variables in platform dashboard
+2. Update `GMAIL_REDIRECT_URI` to production URL
+3. Add production URL to Google OAuth allowed redirect URIs
+4. Deploy:
+
+```bash
+# Build
+npm run build
+
+# Start
+npm run start:prod
+```
 
 ### Frontend Deployment (Vercel/Netlify)
 
-1. Create new site from GitHub
-2. Set build command: `npm run build`
-3. Set publish directory: `dist`
-4. Add environment variables:
-   - `VITE_API_URL`: Your backend URL
-   - `VITE_GOOGLE_CLIENT_ID`: Google Client ID
-5. Deploy
+1. Set environment variables:
+   - `VITE_API_URL=https://your-backend-url.com`
+   - `VITE_GOOGLE_CLIENT_ID=your-client-id`
 
-### Post-Deployment
+2. Build and deploy:
 
-1. Update Google OAuth redirect URIs:
-   - Add `https://your-backend.com/api/gmail/callback`
-   - Add `https://your-frontend.com`
-2. Update CORS settings in backend
-3. Test OAuth flow end-to-end
+```bash
+npm run build
+```
 
----
+3. Configure redirects for SPA routing (Vercel example):
 
-## 🧪 Testing
+```json
+{
+  "rewrites": [
+    { "source": "/(.*)", "destination": "/index.html" }
+  ]
+}
+```
 
-### Test Gmail Connection
+## Testing
 
-1. Login to the app
-2. Click "Connect Gmail"
-3. Grant permissions
-4. Verify emails load from your Gmail account
+### Simulating Token Expiry
 
-### Test Token Refresh
+To test token refresh logic:
 
-The backend automatically refreshes Gmail tokens when they expire. To test:
+1. Set short JWT expiration in backend `.env`:
+```env
+JWT_EXPIRATION=1m
+```
 
-1. Wait for access token to expire (15 minutes)
-2. Try to fetch emails
-3. Should work seamlessly (backend refreshes token)
+2. Make API calls after 1 minute
+3. Observe automatic token refresh in Network tab
 
-### Simulate Token Expiry
+### Testing Gmail Connection
 
-For development, you can manually revoke access:
+1. Use a real Gmail account for testing
+2. Revoke access in [Google Account Settings](https://myaccount.google.com/permissions)
+3. Reconnect to test OAuth flow
+4. Check that refresh token is stored in database
 
-1. Go to [Google Account Permissions](https://myaccount.google.com/permissions)
-2. Remove "G04 Email Client" access
-3. Try to use the app
-4. Should show error and prompt to reconnect
-
----
-
-## 📝 Environment Variables Reference
-
-### Backend
-
-| Variable | Description | Example |
-|----------|-------------|---------|
-| `SUPABASE_URL` | Supabase project URL | `https://xxx.supabase.co` |
-| `SUPABASE_ANON_KEY` | Supabase anon key | `eyJhbG...` |
-| `JWT_ACCESS_SECRET` | JWT access token secret | Random 32+ chars |
-| `JWT_REFRESH_SECRET` | JWT refresh token secret | Random 32+ chars |
-| `PORT` | Backend port | `3000` |
-| `NODE_ENV` | Environment | `development` or `production` |
-| `FRONTEND_URL` | Frontend URL for CORS | `http://localhost:5173` |
-| `GOOGLE_CLIENT_ID` | Google OAuth client ID (app auth) | `xxx.apps.googleusercontent.com` |
-| `GMAIL_CLIENT_ID` | Gmail OAuth client ID | `xxx.apps.googleusercontent.com` |
-| `GMAIL_CLIENT_SECRET` | Gmail OAuth client secret | `GOCSPX-xxx` |
-| `GMAIL_REDIRECT_URI` | Gmail OAuth redirect URI | `http://localhost:3000/api/gmail/callback` |
-
-### Frontend
-
-| Variable | Description | Example |
-|----------|-------------|---------|
-| `VITE_API_URL` | Backend API URL | `http://localhost:3000` |
-| `VITE_GOOGLE_CLIENT_ID` | Google OAuth client ID | `xxx.apps.googleusercontent.com` |
-
----
-
-## 🐛 Troubleshooting
+## Troubleshooting
 
 ### "Gmail not connected" Error
-
-- Make sure you clicked "Connect Gmail" after logging in
-- Check that OAuth callback completed successfully
-- Verify `gmail_refresh_token` is stored in database
-
-### OAuth Redirect Mismatch
-
-- Ensure redirect URI in Google Cloud Console matches exactly
-- Check `GMAIL_REDIRECT_URI` in backend `.env`
-- Include protocol (`http://` or `https://`)
-
-### CORS Errors
-
-- Verify `FRONTEND_URL` in backend `.env`
-- Check browser console for specific CORS error
-- Ensure backend is running
+- Check that Gmail API is enabled in Google Cloud Console
+- Verify OAuth credentials are correct in `.env`
+- Ensure redirect URI matches exactly (including http/https)
+- Check database for stored refresh token
 
 ### Token Refresh Fails
+- Verify refresh token exists in database
+- Check that token hasn't been revoked in Google Account
+- Ensure OAuth scopes haven't changed
+- Try disconnecting and reconnecting Gmail
 
-- Check that refresh token is valid in database
-- Verify Gmail API is enabled in Google Cloud
-- Check backend logs for specific error
+### CORS Errors
+- Verify `FRONTEND_URL` in backend `.env` matches frontend URL
+- Check that CORS is enabled in `main.ts`
+- Ensure credentials are included in frontend requests
 
----
-
-## 📚 Technologies Used
-
-### Frontend
-- React 19
-- TypeScript
-- Vite
-- TailwindCSS
-- React Router
-- React Query (TanStack Query)
-- Axios
-- React Hook Form
+## Tech Stack
 
 ### Backend
-- NestJS
-- TypeScript
-- Passport JWT
-- Google APIs (googleapis)
-- Supabase
-- bcrypt
+- NestJS - Node.js framework
+- TypeScript - Type safety
+- Supabase - PostgreSQL database
+- Passport JWT - Authentication
+- Google APIs - Gmail integration
 
----
+### Frontend
+- React 18 - UI library
+- TypeScript - Type safety
+- Vite - Build tool
+- React Query - Data fetching
+- Axios - HTTP client
+- React Router - Routing
+- Tailwind CSS - Styling
 
-## 📄 License
+## License
 
-UNLICENSED - Educational Project
+MIT
 
----
+## Contributing
 
-## 👥 Contributors
+1. Fork the repository
+2. Create feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit changes (`git commit -m 'Add amazing feature'`)
+4. Push to branch (`git push origin feature/amazing-feature`)
+5. Open Pull Request
 
-- Your Name (@cyanpororo)
-
----
-
-## 🙏 Acknowledgments
-
-- Google Gmail API Documentation
-- NestJS Documentation
-- React Documentation
-- Supabase Team
-
----
-
-## 📞 Support
+## Support
 
 For issues and questions:
-- Create an issue on GitHub
-- Email: your-email@example.com
+- Open an issue on GitHub
+- Check existing issues for solutions
+- Review Google Gmail API documentation
 
----
+## Acknowledgments
 
-**Note**: This is an educational project. For production use, implement additional security measures, error handling, and testing.
+- Gmail API documentation
+- NestJS documentation
+- React Query documentation
+- Supabase community
