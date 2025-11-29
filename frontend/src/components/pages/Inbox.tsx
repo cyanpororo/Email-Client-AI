@@ -27,7 +27,7 @@ export default function Inbox() {
   const [selectedEmailId, setSelectedEmailId] = useState<string | null>(null);
   const [selectedEmails, setSelectedEmails] = useState<Set<string>>(new Set());
   const [showCompose, setShowCompose] = useState(false);
-  const [showGmailConnect, setShowGmailConnect] = useState(false);
+
   const [isMobileView, setIsMobileView] = useState(false);
   const [mobileView, setMobileView] = useState<"folders" | "list" | "detail">(
     "list"
@@ -40,6 +40,10 @@ export default function Inbox() {
   const [composeSubject, setComposeSubject] = useState("");
   const [composeBody, setComposeBody] = useState("");
   const [replyToEmailId, setReplyToEmailId] = useState<string | null>(null);
+
+  // Move to folder menu state
+  const [showMoveMenu, setShowMoveMenu] = useState(false);
+  const [moveEmailId, setMoveEmailId] = useState<string | null>(null);
 
   const queryClient = useQueryClient();
   const isOnline = useOnlineStatus();
@@ -70,8 +74,14 @@ export default function Inbox() {
   // Map labels to mailbox format
   const mailboxes = gmailLabels.map(gmailApi.mapLabelToMailbox);
 
+  // Separate standard folders from custom folders
+  const standardFolderIds = ['INBOX', 'STARRED', 'SENT', 'DRAFT', 'TRASH'];
+  const standardMailboxes = mailboxes.filter(m => standardFolderIds.includes(m.id));
+  const customMailboxes = mailboxes.filter(m => !standardFolderIds.includes(m.id));
+
   // Check if Gmail is connected
   const isGmailConnected = mailboxes.length > 0 && !labelsError;
+
 
   // Show loading while checking Gmail connection (only on initial load, not refetch)
   const isCheckingConnection = labelsLoading;
@@ -191,6 +201,20 @@ export default function Inbox() {
     },
   });
 
+  // Move to folder mutation
+  const moveToFolderMutation = useMutation({
+    mutationFn: ({ emailId, labelId }: { emailId: string; labelId: string }) =>
+      gmailApi.moveGmailToLabel(emailId, labelId),
+    onSuccess: () => {
+      setShowMoveMenu(false);
+      setMoveEmailId(null);
+      queryClient.invalidateQueries({
+        queryKey: ["gmailEmails", selectedMailboxId],
+      });
+      queryClient.invalidateQueries({ queryKey: ["gmailLabels"] });
+    },
+  });
+
   // Send email mutation
   const sendEmailMutation = useMutation({
     mutationFn: (emailData: {
@@ -211,9 +235,14 @@ export default function Inbox() {
       queryClient.invalidateQueries({ queryKey: ["gmailEmails", "SENT"] });
       alert("Email sent successfully!");
     },
-    onError: (error) => {
+    onError: (error: any) => {
       console.error("Failed to send email:", error);
-      alert("Failed to send email. Please try again.");
+      if (error.response?.data) {
+        console.error("Error details:", error.response.data);
+        alert(`Failed to send email: ${error.response.data.message || "Unknown error"}`);
+      } else {
+        alert("Failed to send email. Please try again.");
+      }
     },
   });
 
@@ -233,7 +262,7 @@ export default function Inbox() {
     setReplyToEmailId(email.id);
     setComposeTo(email.from.email);
     setComposeSubject(email.subject.startsWith("Re:") ? email.subject : `Re: ${email.subject}`);
-    setComposeBody(`\n\n--- Original Message ---\nFrom: ${email.from.name} <${email.from.email}>\nDate: ${new Date(email.timestamp).toLocaleString()}\nSubject: ${email.subject}\n\n${email.body}`);
+    setComposeBody("");
     setShowCompose(true);
   };
 
@@ -248,7 +277,7 @@ export default function Inbox() {
     }
     setComposeCc(ccEmails.join(", "));
     setComposeSubject(email.subject.startsWith("Re:") ? email.subject : `Re: ${email.subject}`);
-    setComposeBody(`\n\n--- Original Message ---\nFrom: ${email.from.name} <${email.from.email}>\nDate: ${new Date(email.timestamp).toLocaleString()}\nSubject: ${email.subject}\n\n${email.body}`);
+    setComposeBody("");
     setShowCompose(true);
   };
 
@@ -257,7 +286,7 @@ export default function Inbox() {
     setComposeMode("forward");
     setComposeTo("");
     setComposeSubject(email.subject.startsWith("Fwd:") ? email.subject : `Fwd: ${email.subject}`);
-    setComposeBody(`\n\n--- Forwarded Message ---\nFrom: ${email.from.name} <${email.from.email}>\nDate: ${new Date(email.timestamp).toLocaleString()}\nTo: ${email.to.map(t => `${t.name} <${t.email}>`).join(", ")}\nSubject: ${email.subject}\n\n${email.body}`);
+    setComposeBody("");
     setShowCompose(true);
   };
 
@@ -395,6 +424,21 @@ export default function Inbox() {
     toggleStarMutation,
     deleteMutation,
   ]);
+
+  // Close move menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (showMoveMenu) {
+        const target = e.target as HTMLElement;
+        if (!target.closest('.move-menu-container')) {
+          setShowMoveMenu(false);
+        }
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [showMoveMenu]);
 
   // Toggle email selection
   const toggleEmailSelection = (emailId: string) => {
@@ -552,7 +596,43 @@ export default function Inbox() {
                 role="navigation"
                 aria-label="Mailbox folders"
               >
-                {mailboxes.map((mailbox) => (
+                {/* Standard folders */}
+                {standardMailboxes.map((mailbox) => (
+                  <button
+                    key={mailbox.id}
+                    onClick={() => handleMailboxClick(mailbox.id)}
+                    className={`w-full text-left px-3 md:px-4 py-2.5 md:py-3 rounded-lg mb-1 transition-colors text-sm md:text-base ${selectedMailboxId === mailbox.id
+                      ? "bg-blue-50 text-blue-700 font-medium"
+                      : "hover:bg-gray-100 text-gray-700"
+                      }`}
+                    aria-current={
+                      selectedMailboxId === mailbox.id ? "page" : undefined
+                    }
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="flex items-center gap-2">
+                        <span aria-hidden="true">{mailbox.icon}</span>
+                        <span>{mailbox.name}</span>
+                      </span>
+                      {mailbox.unreadCount > 0 && (
+                        <span
+                          className="bg-blue-600 text-white text-xs rounded-full px-2 py-0.5 min-w-[20px] text-center"
+                          aria-label={`${mailbox.unreadCount} unread emails`}
+                        >
+                          {mailbox.unreadCount}
+                        </span>
+                      )}
+                    </div>
+                  </button>
+                ))}
+
+                {/* Divider between standard and custom folders */}
+                {customMailboxes.length > 0 && (
+                  <div className="border-t border-gray-200 my-2 mx-2"></div>
+                )}
+
+                {/* Custom folders */}
+                {customMailboxes.map((mailbox) => (
                   <button
                     key={mailbox.id}
                     onClick={() => handleMailboxClick(mailbox.id)}
@@ -866,9 +946,50 @@ export default function Inbox() {
                     >
                       Forward
                     </Button>
+
+                    {/* Move to Folder dropdown */}
+                    {customMailboxes.length > 0 && (
+                      <div className="relative move-menu-container">
+                        <Button
+                          variant="outline"
+                          onClick={() => {
+                            setMoveEmailId(selectedEmail.id);
+                            setShowMoveMenu(!showMoveMenu);
+                          }}
+                          className="text-xs md:text-sm h-8 md:h-9"
+                        >
+                          📁 Move to...
+                        </Button>
+
+                        {showMoveMenu && moveEmailId === selectedEmail.id && (
+                          <div className="absolute z-50 mt-1 w-48 bg-white border border-gray-200 rounded-lg shadow-lg">
+                            <div className="py-1 max-h-64 overflow-y-auto">
+                              {customMailboxes.map((mailbox) => (
+                                <button
+                                  key={mailbox.id}
+                                  onClick={() => {
+                                    moveToFolderMutation.mutate({
+                                      emailId: selectedEmail.id,
+                                      labelId: mailbox.id,
+                                    });
+                                  }}
+                                  className="w-full text-left px-4 py-2 text-sm hover:bg-gray-100 flex items-center gap-2"
+                                  disabled={moveToFolderMutation.isPending}
+                                >
+                                  <span>{mailbox.icon}</span>
+                                  <span>{mailbox.name}</span>
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
                     <Button
                       variant="outline"
                       onClick={() => deleteMutation.mutate(selectedEmail.id)}
+                      disabled={deleteMutation.isPending}
                       className="text-xs md:text-sm h-8 md:h-9"
                     >
                       Delete
@@ -1052,7 +1173,7 @@ export default function Inbox() {
             </Card>
           </div>
         )}
-      </div>
+      </div >
     </>
   );
 }

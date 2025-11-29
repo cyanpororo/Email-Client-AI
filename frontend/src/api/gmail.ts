@@ -271,6 +271,16 @@ export async function deleteGmailEmail(emailId: string): Promise<void> {
 }
 
 /**
+ * Move email to a specific label/folder
+ */
+export async function moveGmailToLabel(emailId: string, labelId: string): Promise<void> {
+    await gmailApi.post(`/api/gmail/emails/${emailId}/modify`, {
+        addLabelIds: [labelId],
+        removeLabelIds: ['INBOX'], // Remove from inbox when moving to custom folder
+    });
+}
+
+/**
  * Get attachment download URL
  */
 export function getGmailAttachmentUrl(messageId: string, attachmentId: string): string {
@@ -324,6 +334,17 @@ export function mapLabelToMailbox(label: GmailLabel): {
     unreadCount: number;
     icon: string;
 } {
+    // Map standard Gmail label IDs to user-friendly names
+    const nameMap: Record<string, string> = {
+        INBOX: 'Inbox',
+        STARRED: 'Starred',
+        SENT: 'Sent',
+        DRAFT: 'Drafts',
+        TRASH: 'Trash',
+        SPAM: 'Spam',
+        IMPORTANT: 'Important',
+    };
+
     const iconMap: Record<string, string> = {
         INBOX: '📥',
         STARRED: '⭐',
@@ -341,7 +362,7 @@ export function mapLabelToMailbox(label: GmailLabel): {
 
     return {
         id: label.id,
-        name: label.name,
+        name: nameMap[label.id] || label.name,
         unreadCount: label.messagesUnread,
         icon: iconMap[label.id] || '📁',
     };

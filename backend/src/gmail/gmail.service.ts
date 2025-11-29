@@ -128,6 +128,7 @@ export class GmailService {
 
     /**
      * Get list of labels (mailboxes)
+     * Returns labels in order: Inbox, Starred, Sent, Drafts, Archive, Trash, Custom folders
      */
     async getLabels(userId: string) {
         try {
@@ -140,14 +141,33 @@ export class GmailService {
 
             const labels = response.data.labels || [];
 
+            // Define the standard folders we want to show in order
+            // Note: Gmail doesn't have a separate "Archive" - archived emails just remove INBOX label
+            const standardFolders = ['INBOX', 'STARRED', 'SENT', 'DRAFT', 'TRASH'];
+
             // Map to our mailbox format
-            return labels.map(label => ({
+            const mappedLabels = labels.map(label => ({
                 id: label.id,
                 name: label.name,
                 type: label.type,
                 messagesTotal: label.messagesTotal || 0,
                 messagesUnread: label.messagesUnread || 0,
             }));
+
+            // Separate standard folders from custom folders
+            const standardLabels = standardFolders
+                .map(id => mappedLabels.find(label => label.id === id))
+                .filter(label => label !== undefined);
+
+            // Get custom folders (user-created labels, excluding categories and system labels)
+            const customLabels = mappedLabels.filter(label =>
+                label.type === 'user' &&
+                label.id &&
+                !standardFolders.includes(label.id)
+            );
+
+            // Return standard folders first, then custom folders
+            return [...standardLabels, ...customLabels];
         } catch (error) {
             console.error('Get labels error:', error);
             throw new InternalServerErrorException('Failed to fetch mailboxes');
@@ -248,20 +268,32 @@ export class GmailService {
             const auth = await this.getAuthenticatedClient(userId);
             const gmail = google.gmail({ version: 'v1', auth });
 
-            // Create email message
-            const messageParts = [
-                `To: ${emailDto.to.join(', ')}`,
-                emailDto.cc ? `Cc: ${emailDto.cc.join(', ')}` : '',
-                emailDto.bcc ? `Bcc: ${emailDto.bcc.join(', ')}` : '',
-                `Subject: ${emailDto.subject}`,
-                emailDto.inReplyTo ? `In-Reply-To: ${emailDto.inReplyTo}` : '',
-                emailDto.references ? `References: ${emailDto.references}` : '',
-                'Content-Type: text/html; charset=utf-8',
-                '',
-                emailDto.body,
-            ].filter(Boolean);
+            // Escape HTML characters and convert newlines to <br>
+            const formattedBody = emailDto.body
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/\n/g, '<br>');
 
-            const message = messageParts.join('\r\n');
+            // Create email message headers
+            const headers = [
+                `To: ${emailDto.to.join(', ')}`,
+                emailDto.cc?.length ? `Cc: ${emailDto.cc.join(', ')}` : null,
+                emailDto.bcc?.length ? `Bcc: ${emailDto.bcc.join(', ')}` : null,
+                `Subject: ${emailDto.subject}`,
+                emailDto.inReplyTo ? `In-Reply-To: ${emailDto.inReplyTo}` : null,
+                emailDto.references ? `References: ${emailDto.references}` : null,
+                'MIME-Version: 1.0',
+                'Content-Type: text/html; charset=utf-8',
+            ].filter(header => header !== null);
+
+            // Combine headers and body with a blank line separator
+            const message = [
+                ...headers,
+                '',
+                formattedBody,
+            ].join('\r\n');
+
             const encodedMessage = Buffer.from(message)
                 .toString('base64')
                 .replace(/\+/g, '-')
@@ -393,6 +425,11 @@ export class GmailService {
 
     private extractBody(payload: any): string {
         if (!payload) return '';
+
+        if (payload.mimeType === 'text/plain' && payload.body?.data) {
+            const text = Buffer.from(payload.body.data, 'base64').toString('utf-8');
+            return `<div>${text.replace(/\n/g, '<br>')}</div>`;
+        }
 
         if (payload.body?.data) {
             return Buffer.from(payload.body.data, 'base64').toString('utf-8');
