@@ -1,105 +1,10 @@
 // Gmail API Client - Real Gmail integration via backend
-import axios from 'axios';
+import { api, getAccessToken } from './client';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 
-// Create axios instance with auth interceptor
-const gmailApi = axios.create({
-    baseURL: API_URL,
-    withCredentials: true,
-});
-
-// Add auth token to requests
-gmailApi.interceptors.request.use((config) => {
-    const token = localStorage.getItem('token');
-    if (token) {
-        config.headers.Authorization = `Bearer ${token}`;
-    }
-    return config;
-});
-
-// Concurrency protection: Track in-flight refresh request
-let refreshPromise: Promise<string | null> | null = null;
-
-/**
- * Refresh access token using refresh token
- * Implements concurrency guard: only one refresh request at a time
- */
-async function refreshAccessToken(): Promise<string | null> {
-    try {
-        const refreshToken = localStorage.getItem('refreshToken');
-        if (!refreshToken) {
-            return null;
-        }
-
-        const response = await axios.post(`${API_URL}/auth/refresh`, {
-            refreshToken,
-        });
-
-        const newAccessToken = response.data.accessToken;
-        localStorage.setItem('token', newAccessToken);
-
-        // Update refresh token if provided
-        if (response.data.refreshToken) {
-            localStorage.setItem('refreshToken', response.data.refreshToken);
-        }
-
-        return newAccessToken;
-    } catch (error) {
-        // Refresh failed, clear tokens
-        localStorage.removeItem('token');
-        localStorage.removeItem('refreshToken');
-        return null;
-    }
-}
-
-// Handle token refresh on 401 with concurrency protection
-gmailApi.interceptors.response.use(
-    (response) => response,
-    async (error) => {
-        const originalRequest = error.config;
-
-        // Check if this is a 401 and we haven't already retried
-        if (error.response?.status === 401 && !originalRequest._retry) {
-            originalRequest._retry = true;
-
-            // If a refresh is already in progress, wait for it
-            if (refreshPromise) {
-                const newToken = await refreshPromise;
-                if (newToken) {
-                    originalRequest.headers.Authorization = `Bearer ${newToken}`;
-                    return gmailApi(originalRequest);
-                } else {
-                    // Refresh failed, redirect to login
-                    window.location.href = '/login';
-                    return Promise.reject(error);
-                }
-            }
-
-            // Start a new refresh request
-            refreshPromise = refreshAccessToken();
-
-            try {
-                const newToken = await refreshPromise;
-
-                if (newToken) {
-                    // Retry the original request with new token
-                    originalRequest.headers.Authorization = `Bearer ${newToken}`;
-                    return gmailApi(originalRequest);
-                } else {
-                    // Refresh failed, redirect to login
-                    window.location.href = '/login';
-                    return Promise.reject(error);
-                }
-            } finally {
-                // Clear the refresh promise
-                refreshPromise = null;
-            }
-        }
-
-        return Promise.reject(error);
-    }
-);
+// Use the shared api instance which handles auth and token refresh
+const gmailApi = api;
 
 // Types matching backend responses
 export type GmailLabel = {
@@ -284,7 +189,7 @@ export async function moveGmailToLabel(emailId: string, labelId: string): Promis
  * Get attachment download URL
  */
 export function getGmailAttachmentUrl(messageId: string, attachmentId: string): string {
-    const token = localStorage.getItem('token');
+    const token = getAccessToken();
     return `${API_URL}/api/gmail/emails/${messageId}/attachments/${attachmentId}?token=${token}`;
 }
 

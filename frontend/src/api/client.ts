@@ -16,25 +16,15 @@ export const setAccessToken = (token: string | null) => {
 
 export const getAccessToken = () => accessToken
 
-// Refresh token stored in localStorage
-export const setRefreshToken = (token: string) => {
-  localStorage.setItem('refreshToken', token)
-}
-
-export const getRefreshToken = () => {
-  return localStorage.getItem('refreshToken')
-}
-
 export const clearTokens = () => {
   accessToken = null
-  localStorage.removeItem('refreshToken')
   // Broadcast logout to other tabs
   broadcastAuthEvent('logout')
 }
 
 // Broadcast Channel for cross-tab communication
-const authChannel = typeof BroadcastChannel !== 'undefined' 
-  ? new BroadcastChannel('auth_channel') 
+const authChannel = typeof BroadcastChannel !== 'undefined'
+  ? new BroadcastChannel('auth_channel')
   : null
 
 type AuthEventType = 'logout' | 'login'
@@ -51,32 +41,16 @@ if (authChannel) {
     if (event.data.type === 'logout') {
       // Clear tokens in this tab
       accessToken = null
-      localStorage.removeItem('refreshToken')
-      
+
       // Redirect to login if not already there
-      if (!window.location.pathname.includes('/login') && 
-          !window.location.pathname.includes('/signup') &&
-          !window.location.pathname.includes('/home')) {
+      if (!window.location.pathname.includes('/login') &&
+        !window.location.pathname.includes('/signup') &&
+        !window.location.pathname.includes('/home')) {
         window.location.href = '/login'
       }
     }
   }
 }
-
-// Fallback: Listen for storage events (for browsers without BroadcastChannel)
-window.addEventListener('storage', (event) => {
-  if (event.key === 'refreshToken' && event.newValue === null) {
-    // Refresh token was removed in another tab
-    accessToken = null
-    
-    // Redirect to login if not already there
-    if (!window.location.pathname.includes('/login') && 
-        !window.location.pathname.includes('/signup') &&
-        !window.location.pathname.includes('/home')) {
-      window.location.href = '/login'
-    }
-  }
-})
 
 // Request interceptor to attach access token
 api.interceptors.request.use(
@@ -137,20 +111,11 @@ api.interceptors.response.use(
         originalRequest._retry = true
         isRefreshing = true
 
-        const refreshToken = getRefreshToken()
-
-        if (!refreshToken) {
-          clearTokens()
-          isRefreshing = false
-          // Do not redirect on failed login (we already excluded /auth/login above)
-          window.location.href = '/login'
-          return Promise.reject(error)
-        }
-
         try {
           const { data } = await axios.post(
             `${import.meta.env.VITE_API_URL ?? 'http://localhost:3000'}/auth/refresh`,
-            { refreshToken }
+            {},
+            { withCredentials: true }
           )
 
           setAccessToken(data.accessToken)
