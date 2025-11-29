@@ -4,6 +4,7 @@ import * as gmailApi from "../../api/gmail";
 import { Card } from "../ui/card";
 import { Button } from "../ui/button";
 import { OfflineIndicator, useOnlineStatus } from "../OfflineIndicator";
+import { EmailFrame } from "../EmailFrame";
 
 // Type for mapped email (UI-compatible format)
 type Email = {
@@ -257,14 +258,14 @@ export default function Inbox() {
   };
 
   // Helper: Open compose for reply
-  const handleReply = (email: Email) => {
+  const handleReply = useCallback((email: Email) => {
     setComposeMode("reply");
     setReplyToEmailId(email.id);
     setComposeTo(email.from.email);
     setComposeSubject(email.subject.startsWith("Re:") ? email.subject : `Re: ${email.subject}`);
     setComposeBody("");
     setShowCompose(true);
-  };
+  }, []);
 
   // Helper: Open compose for reply all
   const handleReplyAll = (email: Email) => {
@@ -385,6 +386,7 @@ export default function Inbox() {
         case "r":
           if (selectedEmail && !e.ctrlKey && !e.metaKey) {
             e.preventDefault();
+            handleReply(selectedEmail);
           }
           break;
         case "s":
@@ -423,6 +425,7 @@ export default function Inbox() {
     handleEmailClick,
     toggleStarMutation,
     deleteMutation,
+    handleReply,
   ]);
 
   // Close move menu when clicking outside
@@ -1010,10 +1013,7 @@ export default function Inbox() {
 
                 {/* Email body */}
                 <div className="flex-1 overflow-y-auto p-3 md:p-6">
-                  <div
-                    className="prose max-w-none"
-                    dangerouslySetInnerHTML={{ __html: selectedEmail.body }}
-                  />
+                  <EmailFrame content={selectedEmail.body} />
 
                   {/* Attachments */}
                   {selectedEmail.attachments &&
