@@ -11,7 +11,6 @@ import { useNavigate } from "react-router-dom";
 import * as authApi from "../api/auth";
 import {
   getAccessToken,
-  getRefreshToken,
   clearTokens,
   setAccessToken,
 } from "../api/client";
@@ -32,7 +31,7 @@ type AuthContextType = {
   googleLogin: (credential: string) => Promise<void>;
   logout: () => Promise<void>;
   error: string | null;
-  isAuthenticating: boolean; // added
+  isAuthenticating: boolean;
 };
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -71,14 +70,8 @@ export function AuthProvider({ children }: PropsWithChildren) {
 
     clearRefreshTimer();
     refreshTimeoutRef.current = window.setTimeout(async () => {
-      const refresh = getRefreshToken();
-      if (!refresh) {
-        clearTokens();
-        setUser(null);
-        return;
-      }
       try {
-        const { accessToken } = await authApi.refreshAccessToken(refresh);
+        const { accessToken } = await authApi.refreshAccessToken();
         setAccessToken(accessToken);
         scheduleProactiveRefresh(accessToken);
         // Optionally refresh profile in background
@@ -96,23 +89,23 @@ export function AuthProvider({ children }: PropsWithChildren) {
     let cancelled = false;
     const bootstrap = async () => {
       try {
+        // Always try to refresh on load to check if we have a valid cookie
+        // unless we already have an access token in memory (which shouldn't happen on reload)
         if (!getAccessToken()) {
-          const refresh = getRefreshToken();
-          if (refresh) {
-            const { accessToken } = await authApi.refreshAccessToken(refresh);
-            if (!cancelled) {
-              setAccessToken(accessToken);
-              scheduleProactiveRefresh(accessToken);
-            }
+          const { accessToken } = await authApi.refreshAccessToken();
+          if (!cancelled) {
+            setAccessToken(accessToken);
+            scheduleProactiveRefresh(accessToken);
           }
         } else {
           const token = getAccessToken()!;
           scheduleProactiveRefresh(token);
         }
       } catch {
+        // No valid session
         clearTokens();
         setUser(null);
-        window.location.href = "/login"; // ensure redirect on refresh failure
+        // Don't redirect to login here, just let them stay on public pages or be redirected by protected routes
       } finally {
         if (!cancelled) setInitializing(false);
       }
