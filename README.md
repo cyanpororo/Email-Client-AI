@@ -1,400 +1,343 @@
-# React Email Client with Gmail API Integration
+# React Email Client
 
-A full-stack email client application built with React and NestJS that integrates with Gmail API for real email functionality.
+A full-stack email client application built with React and NestJS that integrates with Gmail API, featuring Google OAuth2 authentication, real-time email management, and a responsive 3-column UI.
 
-## Features
+## 🚀 Features
 
-✅ **Gmail API Integration** - Real email access via Google OAuth2
-✅ **Secure Authentication** - JWT-based auth with refresh token storage in database
-✅ **3-Column Responsive UI** - Mailboxes, email list, and email detail views
-✅ **Email Operations** - Read, send, reply, delete, star, and manage labels
-✅ **Attachment Support** - Download and view email attachments
-✅ **Keyboard Navigation** - Vim-style shortcuts (j/k, r, s, c, etc.)
-✅ **Offline Support** - IndexedDB caching with stale-while-revalidate strategy
-✅ **Token Management** - Automatic token refresh with concurrency protection
-✅ **Mobile Responsive** - Optimized for all screen sizes
-✅ **Multi-tab Sync** - Logout synchronization across browser tabs
+- **Gmail Integration**: Full Gmail API integration for reading, sending, and managing emails
+- **Google OAuth2 Authentication**: Secure OAuth2 flow with refresh token support
+- **Responsive UI**: 3-column layout (mailboxes, email list, email detail) with mobile support
+- **Email Operations**: Read, send, reply, delete, star/unstar, mark read/unread
+- **Attachment Support**: View and download email attachments
+- **Search & Filter**: Search emails and filter by mailbox
+- **Secure Token Storage**: HttpOnly secure cookies for refresh tokens
 
-## Architecture
+## 📋 Table of Contents
 
-### Backend (NestJS)
+- [Setup & Run Locally](#setup--run-locally)
+- [Deployed Public URLs](#deployed-public-urls)
+- [Google OAuth Credentials Setup](#google-oauth-credentials-setup)
+- [Token Storage & Security](#token-storage--security)
+- [Token Expiry Simulation](#token-expiry-simulation)
+- [Project Structure](#project-structure)
+- [API Endpoints](#api-endpoints)
+- [Environment Variables](#environment-variables)
 
-- **Gmail Service**: Handles OAuth2 flow and Gmail API operations
-- **Auth Service**: JWT-based authentication with Supabase
-- **Token Storage**: Refresh tokens stored securely in Supabase database
-- **API Endpoints**: RESTful API for frontend consumption
+---
 
-### Frontend (React + Vite)
+## 🛠️ Setup & Run Locally
 
-- **Gmail API Client**: Axios-based client with automatic token refresh
-- **React Query**: Data fetching with caching and background updates
-- **IndexedDB Cache**: Persistent offline storage for emails and labels
-- **Service Worker**: Network-first caching for API responses
-- **Responsive Design**: Mobile-first with 3-column desktop layout
+### Prerequisites
 
-## Prerequisites
+- Node.js (v18 or higher)
+- npm or yarn
+- A Supabase account (for user database)
+- A Google Cloud Console account (for Gmail API)
 
-- Node.js 18+ and npm
-- Google Cloud Platform account
-- Supabase account (for database)
-- Gmail account for testing
+### 1. Clone the Repository
 
-## Setup Instructions
-
-### 1. Google Cloud Platform Setup
-
-1. Go to [Google Cloud Console](https://console.cloud.google.com/)
-2. Create a new project or select existing one
-3. Enable Gmail API:
-   - Navigate to "APIs & Services" > "Library"
-   - Search for "Gmail API" and click "Enable"
-4. Create OAuth 2.0 credentials:
-   - Go to "APIs & Services" > "Credentials"
-   - Click "Create Credentials" > "OAuth client ID"
-   - Choose "Web application"
-   - Add authorized redirect URIs:
-     - `http://localhost:3000/api/gmail/callback` (development)
-     - `https://your-backend-domain.com/api/gmail/callback` (production)
-   - Save the Client ID and Client Secret
-
-### 2. Supabase Database Setup
-
-1. Create a Supabase project at [supabase.com](https://supabase.com)
-2. Add `gmail_refresh_token` column to users table:
-
-```sql
-ALTER TABLE users
-ADD COLUMN gmail_refresh_token TEXT;
+```bash
+git clone https://github.com/cyanpororo/G04-React-Email-Client.git
+cd G04-React-Email-Client
 ```
 
-3. Get your Supabase URL and anon key from project settings
+### 2. Backend Setup
 
-### 3. Backend Setup
-
-1. Navigate to backend directory:
+#### Install Dependencies
 
 ```bash
 cd backend
-```
-
-2. Install dependencies:
-
-```bash
 npm install
 ```
 
-3. Create `.env` file:
+#### Configure Environment Variables
 
-```env
-# Server
-PORT=3000
-NODE_ENV=development
+Create a `.env` file in the `backend` directory.
 
-# Frontend URL (for CORS)
-FRONTEND_URL=http://localhost:5173
+**Important:** Change the JWT secrets to strong, random strings in production.
 
-# JWT Secret
-JWT_SECRET=your-super-secret-jwt-key-change-this-in-production
-
-# Supabase
-SUPABASE_URL=https://your-project.supabase.co
-SUPABASE_KEY=your-supabase-anon-key
-
-# Gmail OAuth2
-GMAIL_CLIENT_ID=your-google-client-id.apps.googleusercontent.com
-GMAIL_CLIENT_SECRET=your-google-client-secret
-GMAIL_REDIRECT_URI=http://localhost:3000/api/gmail/callback
-```
-
-4. Start development server:
+#### Start the Backend Server
 
 ```bash
 npm run start:dev
 ```
 
-Backend will run on `http://localhost:3000`
+The backend will run on `http://localhost:3000`
 
-### 4. Frontend Setup
+### 3. Frontend Setup
 
-1. Navigate to frontend directory:
+#### Install Dependencies
 
 ```bash
 cd frontend
-```
-
-2. Install dependencies:
-
-```bash
 npm install
 ```
 
-3. Create `.env` file:
+#### Configure Environment Variables
 
-```env
-VITE_API_URL=http://localhost:3000
-VITE_GOOGLE_CLIENT_ID=your-google-client-id.apps.googleusercontent.com
-```
+Create a `.env` file in the `frontend` directory.
 
-4. Start development server:
+#### Start the Frontend Development Server
 
 ```bash
 npm run dev
 ```
 
-Frontend will run on `http://localhost:5173`
+The frontend will run on `http://localhost:5173`
 
-## Usage
+### 4. Database Setup
 
-### First Time Setup
+#### Create Supabase Tables
 
-1. Open `http://localhost:5173` in your browser
-2. Sign up for an account or log in
-3. Click "Connect Gmail Account"
-4. Authorize the application to access your Gmail
-5. You'll be redirected back to the inbox with your real emails!
+Run the given SQL in your Supabase SQL editor.
 
-### Email Operations
+---
 
-- **Navigate**: Use ↑/↓ arrow keys or j/k (Vim-style)
-- **Compose**: Press 'c' or click "Compose" button
-- **Reply**: Press 'r' or click "Reply" button
-- **Star**: Press 's' or click the star icon
-- **Delete**: Press Delete key or click "Delete" button
-- **Mark Read/Unread**: Click the action button in email detail
-
-## API Endpoints
-
-### Authentication
-
-- `POST /api/auth/signup` - Create new account
-- `POST /api/auth/login` - Login with email/password
-- `POST /api/auth/google` - Login with Google
-- `POST /api/auth/logout` - Logout
-
-### Gmail
-
-- `GET /api/gmail/auth` - Get OAuth authorization URL
-- `GET /api/gmail/callback` - OAuth callback handler
-- `POST /api/gmail/connect` - Connect Gmail with auth code
-- `POST /api/gmail/disconnect` - Disconnect Gmail
-- `GET /api/gmail/mailboxes` - Get all labels/mailboxes
-- `GET /api/gmail/mailboxes/:id/emails` - Get emails from mailbox
-- `GET /api/gmail/emails/:id` - Get single email
-- `POST /api/gmail/emails/send` - Send new email
-- `POST /api/gmail/emails/:id/reply` - Reply to email
-- `POST /api/gmail/emails/:id/read` - Mark as read
-- `POST /api/gmail/emails/:id/unread` - Mark as unread
-- `POST /api/gmail/emails/:id/star` - Toggle star
-- `POST /api/gmail/emails/:id/delete` - Delete email
-- `GET /api/gmail/emails/:messageId/attachments/:attachmentId` - Download attachment
-
-## Security Considerations
-
-### Token Storage
-
-- **Access Tokens**: Stored in-memory on frontend (never in localStorage)
-- **Refresh Tokens**: Stored server-side in Supabase database
-- **Gmail Refresh Tokens**: Stored encrypted in database, never sent to frontend
-
-### OAuth2 Flow
-
-1. Frontend requests auth URL from backend
-2. User authorizes on Google's servers
-3. Google redirects to backend callback with authorization code
-4. Backend exchanges code for tokens
-5. Backend stores refresh token in database
-6. Frontend receives session token only
-
-### CORS & Security Headers
-
-- CORS configured to allow only frontend origin
-- Helmet.js for security headers
-- Rate limiting on authentication endpoints
-- JWT tokens with short expiration (15 minutes)
-
-## Offline Caching (IndexedDB + Stale-While-Revalidate)
-
-This application implements comprehensive offline support using IndexedDB for persistent storage and a stale-while-revalidate caching strategy.
-
-### How It Works
-
-1. **IndexedDB Storage**: Emails, labels, and email details are stored in IndexedDB for persistent offline access
-2. **Stale-While-Revalidate**: Cached data is served immediately while fresh data is fetched in the background
-3. **Service Worker**: API responses are cached at the network layer for additional resilience
-4. **Optimistic Updates**: UI updates immediately on user actions, with background sync to server
-
-### Cache Storage Structure
-
-| Store           | Contents                | TTL        |
-| --------------- | ----------------------- | ---------- |
-| `labels`        | Gmail mailbox labels    | 10 minutes |
-| `emails`        | Email lists per mailbox | 5 minutes  |
-| `email-details` | Full email content      | 30 minutes |
-| `metadata`      | Sync timestamps         | N/A        |
-
-### Offline Capabilities
-
-- **View cached emails**: Previously loaded emails are available offline
-- **Navigate mailboxes**: Switch between cached mailboxes without network
-- **Read email details**: Full email content cached for offline reading
-- **Cache status indicators**: Visual feedback showing cached/stale data
-- **Automatic sync**: Data refreshes automatically when back online
-
-### Testing Offline Mode
-
-1. Load the inbox with Gmail connected
-2. Navigate through different mailboxes to cache data
-3. Open Chrome DevTools → Network → Check "Offline"
-4. The app continues to work with cached data
-5. The offline indicator shows cached email count
-6. Uncheck "Offline" to see automatic background refresh
-
-### Cache Management
-
-```typescript
-// Programmatic cache control (available in browser console)
-import { clearAllCache, getCacheStats } from "./lib/emailCache";
-
-// View cache statistics
-const stats = await getCacheStats();
-console.log(stats);
-
-// Clear all cached data
-await clearAllCache();
-```
-
-### Environment Variables for Service Worker
-
-```env
-# Enable service worker in development (optional)
-VITE_ENABLE_SW=true
-```
-
-## Deployment
-
-### Backend Deployment (Railway/Render/Heroku)
-
-1. Set environment variables in platform dashboard
-2. Update `GMAIL_REDIRECT_URI` to production URL
-3. Add production URL to Google OAuth allowed redirect URIs
-4. Deploy:
-
-```bash
-# Build
-npm run build
-
-# Start
-npm run start:prod
-```
-
-### Frontend Deployment (Vercel/Netlify)
-
-1. Set environment variables:
-
-   - `VITE_API_URL=https://your-backend-url.com`
-   - `VITE_GOOGLE_CLIENT_ID=your-client-id`
-
-2. Build and deploy:
-
-```bash
-npm run build
-```
-
-3. Configure redirects for SPA routing (Vercel example):
-
-```json
-{
-  "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }]
-}
-```
-
-## Testing
-
-### Simulating Token Expiry
-
-To test token refresh logic:
-
-1. Set short JWT expiration in backend `.env`:
-
-```env
-JWT_EXPIRATION=1m
-```
-
-2. Make API calls after 1 minute
-3. Observe automatic token refresh in Network tab
-
-### Testing Gmail Connection
-
-1. Use a real Gmail account for testing
-2. Revoke access in [Google Account Settings](https://myaccount.google.com/permissions)
-3. Reconnect to test OAuth flow
-4. Check that refresh token is stored in database
-
-## Troubleshooting
-
-### "Gmail not connected" Error
-
-- Check that Gmail API is enabled in Google Cloud Console
-- Verify OAuth credentials are correct in `.env`
-- Ensure redirect URI matches exactly (including http/https)
-- Check database for stored refresh token
-
-### Token Refresh Fails
-
-- Verify refresh token exists in database
-- Check that token hasn't been revoked in Google Account
-- Ensure OAuth scopes haven't changed
-- Try disconnecting and reconnecting Gmail
-
-### CORS Errors
-
-- Verify `FRONTEND_URL` in backend `.env` matches frontend URL
-- Check that CORS is enabled in `main.ts`
-- Ensure credentials are included in frontend requests
-
-## Tech Stack
-
-### Backend
-
-- NestJS - Node.js framework
-- TypeScript - Type safety
-- Supabase - PostgreSQL database
-- Passport JWT - Authentication
-- Google APIs - Gmail integration
+## 🌐 Deployed Public URLs
 
 ### Frontend
+- **Production URL**: `https://react-email-client-awad.onrender.com`
 
-- React 18 - UI library
-- TypeScript - Type safety
-- Vite - Build tool
-- React Query - Data fetching
-- Axios - HTTP client
-- React Router - Routing
-- Tailwind CSS - Styling
+### Backend
+- **Production API**: `https://react-email-client-awad.up.railway.app`
 
-## License
+---
 
-MIT
+## 🔑 Google OAuth Credentials Setup
 
-## Contributing
+### Step 1: Create a Google Cloud Project
 
-1. Fork the repository
-2. Create feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit changes (`git commit -m 'Add amazing feature'`)
-4. Push to branch (`git push origin feature/amazing-feature`)
-5. Open Pull Request
+1. Go to [Google Cloud Console](https://console.cloud.google.com/)
+2. Click **Select a project** → **New Project**
+3. Enter project name (e.g., "React Email Client")
+4. Click **Create**
 
-## Support
+### Step 2: Enable Gmail API
 
-For issues and questions:
+1. In your project, go to **APIs & Services** → **Library**
+2. Search for "Gmail API"
+3. Click on it and press **Enable**
 
-- Open an issue on GitHub
-- Check existing issues for solutions
-- Review Google Gmail API documentation
+### Step 3: Configure OAuth Consent Screen
 
-## Acknowledgments
+1. Go to **APIs & Services** → **OAuth consent screen**
+2. Select **External** user type (or Internal if using Google Workspace)
+3. Click **Create**
+4. Fill in the required fields:
+   - **App name**: React Email Client
+   - **User support email**: Your email
+   - **Developer contact information**: Your email
+5. Click **Save and Continue**
+6. On the **Scopes** page, click **Add or Remove Scopes**
+7. Add the following scopes:
+   - `https://www.googleapis.com/auth/gmail.readonly` (Read emails)
+   - `https://www.googleapis.com/auth/gmail.send` (Send emails)
+   - `https://www.googleapis.com/auth/gmail.modify` (Modify emails - star, read/unread)
+   - `https://www.googleapis.com/auth/userinfo.email` (User email)
+   - `https://www.googleapis.com/auth/userinfo.profile` (User profile)
+8. Click **Save and Continue**
+9. Add test users (your Gmail account) if using External user type
+10. Click **Save and Continue**
 
-- Gmail API documentation
-- NestJS documentation
-- React Query documentation
-- Supabase community
+### Step 4: Create OAuth2 Credentials
+
+1. Go to **APIs & Services** → **Credentials**
+2. Click **Create Credentials** → **OAuth client ID**
+3. Select **Application type**: Web application
+4. Enter a name (e.g., "React Email Client Web")
+5. Add **Authorized JavaScript origins**:
+   - `http://localhost:5173` (for local development)
+   - `https://your-frontend-url.vercel.app` (for production)
+6. Add **Authorized redirect URIs**:
+   - `http://localhost:5173/oauth/callback` (for local development)
+   - `https://your-frontend-url.vercel.app/oauth/callback` (for production)
+7. Click **Create**
+8. Copy the **Client ID** and **Client Secret**
+9. Add them to your `.env` files (both frontend and backend)
+
+### Step 5: Configure Redirect URIs
+
+The application uses the following redirect URI flow:
+
+1. User clicks "Connect Gmail" in the frontend
+2. Backend generates an OAuth URL with the redirect URI: `GOOGLE_REDIRECT_URI`
+3. User authorizes the app on Google's consent screen
+4. Google redirects back to: `http://localhost:5173/oauth/callback` (or your production URL)
+5. Frontend captures the authorization code and sends it to the backend
+6. Backend exchanges the code for access & refresh tokens
+7. Refresh token is stored securely (see [Token Storage](#token-storage--security))
+
+**Important:** Make sure the `GOOGLE_REDIRECT_URI` in your backend `.env` matches exactly one of the authorized redirect URIs in Google Cloud Console.
+
+---
+
+## 🔒 Token Storage & Security
+
+### Overview
+
+This application implements a secure token storage strategy using a combination of **HttpOnly cookies** and **in-memory storage** to balance security with functionality.
+
+### Token Types
+
+1. **Access Token** (JWT)
+   - **Lifespan**: 15 minutes
+   - **Purpose**: Authenticates API requests
+   - **Storage**: Frontend memory (React state/context)
+   - **Security**: Short-lived, reduces impact of token theft
+
+2. **Refresh Token** (JWT)
+   - **Lifespan**: 7 days
+   - **Purpose**: Obtains new access tokens without re-authentication
+   - **Storage**: HttpOnly Secure cookie
+   - **Security**: Cannot be accessed by JavaScript (XSS protection)
+
+3. **Gmail Refresh Token** (OAuth2)
+   - **Lifespan**: Long-lived (until revoked)
+   - **Purpose**: Accesses Gmail API without re-authorization
+   - **Storage**: Supabase database (encrypted in transit)
+   - **Security**: Stored server-side, never exposed to client
+
+### Security Considerations
+
+#### ✅ Implemented Protections
+
+1. **XSS Protection**
+   - Refresh tokens stored in HttpOnly cookies (inaccessible to scripts)
+   - Access tokens short-lived (15 minutes)
+   - CSP headers can be added
+
+2. **CSRF Protection**
+   - `sameSite: 'strict'` cookie attribute
+   - CORS configured to allow only frontend origin
+
+3. **Token Rotation**
+   - Access tokens refreshed automatically when expired
+   - Refresh endpoint validates old refresh token
+
+4. **Secure Transmission**
+   - All tokens transmitted over HTTPS in production
+   - `secure: true` flag on cookies ensures HTTPS-only
+
+5. **Database Security**
+   - Gmail refresh tokens stored server-side only
+   - User passwords hashed with bcrypt
+   - Environment variables for sensitive data
+
+#### ⚠️ Trade-offs
+
+1. **HttpOnly Cookies vs LocalStorage**
+   - **LocalStorage**: Vulnerable to XSS attacks (JavaScript can access)
+   - **HttpOnly Cookies**: Immune to XSS but requires proper CSRF protection
+
+2. **Access Token in Memory**
+   - Lost on page refresh (requires refresh flow)
+   - More secure than persistent storage
+
+3. **Gmail Token Storage**
+   - Stored in database for persistence (user doesn't need to re-authorize)
+   - Could be encrypted at rest for additional security (not implemented)
+
+### Token Refresh Flow
+
+```
+1. Frontend makes API request with access token
+2. Backend returns 401 if token expired
+3. Frontend calls /auth/refresh with HttpOnly cookie
+4. Backend validates refresh token
+5. Backend returns new access token
+6. Frontend retries original request with new token
+```
+
+---
+
+## ⏱️ Token Expiry Simulation
+
+To demonstrate token refresh functionality and test the authentication flow, this application uses **short-lived access tokens** that expire quickly.
+
+### How to Simulate Token Expiry for Demo
+
+#### Method 1: Reduce Access Token Expiry (Recommended for Demo)
+
+Modify `auth.constants.ts` to make access tokens expire very quickly.
+
+**Testing Steps:**
+1. Login to the application
+2. Wait 30 seconds
+3. Perform any action (e.g., fetch emails, send email)
+4. Observe the token refresh flow in browser DevTools Network tab
+5. You should see:
+   - Initial request fails with 401
+   - Automatic call to `/auth/refresh`
+   - Original request retried with new token
+   - Action completes successfully
+
+#### Method 2: Manual Token Expiry (For Testing Error Handling)
+
+You can also test expired token handling by:
+
+1. **Clear Refresh Token Cookie**:
+   This simulates a scenario where the refresh token is missing.
+
+2. **Wait for Access Token to Expire**:
+   - Login and wait 15+ minutes (or 30 seconds if using Method 1)
+   - Try to perform an action
+   - Should trigger refresh → fail → redirect to login
+
+3. **Use Invalid Token**:
+   - Manually modify the stored access token in memory (using React DevTools)
+   - Try to perform an action
+   - Should trigger token refresh flow
+
+### Observable Behaviors
+
+When testing token expiry, you should observe:
+
+1. **Successful Refresh** (when refresh token is valid):
+   ```
+   → GET /gmail/emails (401 Unauthorized)
+   → POST /auth/refresh (200 OK) - returns new access token
+   → GET /gmail/emails (200 OK) - retries with new token
+   ```
+
+2. **Failed Refresh** (when refresh token is invalid/expired):
+   ```
+   → GET /gmail/emails (401 Unauthorized)
+   → POST /auth/refresh (401 Unauthorized)
+   → Redirect to /login
+   ```
+
+3. **Network Tab Evidence**:
+   - Check "Authorization" header in request headers
+   - Compare token values before and after refresh
+   - Verify new access token is used after refresh
+
+### Production Recommendations
+
+For production deployment:
+
+- **Access Token**: 15-30 minutes (balance between security and UX)
+- **Refresh Token**: 7-30 days (or longer for "remember me" functionality)
+- **Implement Token Rotation**: Issue new refresh token on each refresh (optional)
+- **Add Monitoring**: Log token refresh events for security analysis
+
+---
+
+## 📄 License
+
+This project is for educational purposes.
+
+---
+
+## 👨‍💻 Author
+
+Built as part of Web Advanced coursework (GA04).
+
+---
+
+## 🙏 Acknowledgements
+
+- [NestJS](https://nestjs.com/) - Backend framework
+- [React](https://react.dev/) - Frontend library
+- [Gmail API](https://developers.google.com/gmail/api) - Email integration
+- [Supabase](https://supabase.com/) - Database
+- [Vite](https://vitejs.dev/) - Build tool
