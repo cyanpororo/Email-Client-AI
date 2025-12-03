@@ -36,11 +36,11 @@ const queryClient = new QueryClient({
         return failureCount < 3;
       },
       retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000), // Exponential backoff
-      networkMode: "offlineFirst", // Try cache first, then network
+      networkMode: "always", // Always try network, even if offline (for offline-first support)
     },
     mutations: {
       retry: 1,
-      networkMode: "offlineFirst",
+      networkMode: "always",
     },
   },
 });

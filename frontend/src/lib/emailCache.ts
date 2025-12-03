@@ -503,9 +503,10 @@ export async function cleanupOldCache(): Promise<void> {
 }
 
 // Initialize cleanup on load
-if (typeof window !== "undefined") {
-  // Run cleanup after a short delay to not block initial load
-  setTimeout(() => {
-    cleanupOldCache().catch(console.error);
-  }, 5000);
+export function initEmailCacheCleanup(delayMs: number = 5000) {
+  if (typeof window !== "undefined") {
+    setTimeout(() => {
+      cleanupOldCache().catch(console.error);
+    }, delayMs);
+  }
 }

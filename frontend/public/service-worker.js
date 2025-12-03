@@ -81,7 +81,7 @@ self.addEventListener("fetch", (event) => {
   const url = event.request.url;
 
   // Skip cross-origin requests
-  if (!url.startsWith(self.location.origin) && !url.includes("/api/")) {
+  if (!url.startsWith(self.location.origin)) {
     return;
   }
 
@@ -130,7 +130,9 @@ self.addEventListener("fetch", (event) => {
               url
             );
             // Trigger background update
-            fetchPromise.catch(() => {}); // Ignore errors for background update
+            fetchPromise.catch((error) => {
+              console.error("Service Worker: Background update failed:", error);
+            }); // Ignore errors for background update
             return cachedResponse;
           }
 
@@ -155,7 +157,9 @@ self.addEventListener("fetch", (event) => {
                   cache.put(event.request, networkResponse.clone());
                 }
               })
-              .catch(() => {});
+              .catch((err) => {
+                console.error("Background update of static asset failed:", err);
+              });
             return cachedResponse;
           }
 
@@ -229,7 +233,13 @@ self.addEventListener("message", (event) => {
                   console.log("📥 Service Worker: Prefetched:", url);
                 }
               })
-              .catch(() => {})
+              .catch((err) => {
+                console.log(
+                  "⚠️ Service Worker: Prefetch failed for:",
+                  url,
+                  err
+                );
+              })
           )
         );
       })

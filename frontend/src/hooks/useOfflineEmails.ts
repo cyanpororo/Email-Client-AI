@@ -315,8 +315,10 @@ export function useMarkAsReadMutation(labelId: string) {
       );
 
       // Also update IndexedDB cache
-      emailCache.updateCachedEmail(labelId, emailId, { isRead: true });
-      emailCache.updateCachedEmailDetail(emailId, { isRead: true });
+      await Promise.all([
+        emailCache.updateCachedEmail(labelId, emailId, { isRead: true }),
+        emailCache.updateCachedEmailDetail(emailId, { isRead: true }),
+      ]);
 
       return { previousEmails };
     },
@@ -366,8 +368,8 @@ export function useMarkAsUnreadMutation(labelId: string) {
         }
       );
 
-      emailCache.updateCachedEmail(labelId, emailId, { isRead: false });
-      emailCache.updateCachedEmailDetail(emailId, { isRead: false });
+      await emailCache.updateCachedEmail(labelId, emailId, { isRead: false });
+      await emailCache.updateCachedEmailDetail(emailId, { isRead: false });
 
       return { previousEmails };
     },
@@ -416,8 +418,10 @@ export function useToggleStarMutation(labelId: string) {
         }
       );
 
-      emailCache.updateCachedEmail(labelId, emailId, { isStarred: starred });
-      emailCache.updateCachedEmailDetail(emailId, { isStarred: starred });
+      await emailCache.updateCachedEmail(labelId, emailId, {
+        isStarred: starred,
+      });
+      await emailCache.updateCachedEmailDetail(emailId, { isStarred: starred });
 
       return { previousEmails };
     },
@@ -467,6 +471,9 @@ export function useDeleteEmailMutation(labelId: string) {
       emailCache.removeCachedEmail(labelId, emailId);
 
       return { previousEmails };
+    },
+    onSuccess: async (_data, emailId, _context) => {
+      await emailCache.removeCachedEmail(labelId, emailId);
     },
     onError: (_err, _emailId, context) => {
       if (context?.previousEmails) {

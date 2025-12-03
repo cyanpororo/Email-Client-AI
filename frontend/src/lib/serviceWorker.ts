@@ -119,7 +119,7 @@ export async function requestSync(tag: string = "sync-emails") {
     try {
       const registration = await navigator.serviceWorker.ready;
       // @ts-ignore - sync API not fully typed
-      await registration.sync.register(tag);
+      await (registration as any).sync.register(tag);
       console.log("📤 Background sync registered:", tag);
     } catch (error) {
       console.error("❌ Background sync registration failed:", error);

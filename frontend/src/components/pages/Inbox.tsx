@@ -78,7 +78,6 @@ export default function Inbox() {
     isLoading: labelsLoading,
     isError: labelsError,
     isFromCache: labelsFromCache,
-    isStale: labelsStale,
   } = useGmailLabels();
 
   // Map labels to mailbox format
@@ -102,7 +101,6 @@ export default function Inbox() {
   // Fetch emails for selected mailbox using offline-first hook
   const {
     emails: gmailEmailsRaw,
-    nextPageToken,
     isLoading: emailsLoading,
     isFetching: emailsFetching,
     isError: emailsError,
@@ -116,8 +114,10 @@ export default function Inbox() {
   );
 
   // Fetch selected email details using offline-first hook
-  const { email: selectedGmailEmail, isFromCache: emailDetailFromCache } =
-    useGmailEmailDetail(selectedEmailId, isGmailConnected);
+  const { email: selectedGmailEmail } = useGmailEmailDetail(
+    selectedEmailId,
+    isGmailConnected
+  );
 
   const selectedEmail = selectedGmailEmail
     ? gmailApi.mapGmailEmailToEmail(selectedGmailEmail)
