@@ -10,23 +10,27 @@ A full-stack email client application built with React and NestJS that integrate
 ✅ **Email Operations** - Read, send, reply, delete, star, and manage labels
 ✅ **Attachment Support** - Download and view email attachments
 ✅ **Keyboard Navigation** - Vim-style shortcuts (j/k, r, s, c, etc.)
-✅ **Offline Support** - Cached data with stale-while-revalidate strategy
+✅ **Offline Support** - IndexedDB caching with stale-while-revalidate strategy
 ✅ **Token Management** - Automatic token refresh with concurrency protection
 ✅ **Mobile Responsive** - Optimized for all screen sizes
+✅ **Multi-tab Sync** - Logout synchronization across browser tabs
 
 ## Architecture
 
 ### Backend (NestJS)
+
 - **Gmail Service**: Handles OAuth2 flow and Gmail API operations
 - **Auth Service**: JWT-based authentication with Supabase
 - **Token Storage**: Refresh tokens stored securely in Supabase database
 - **API Endpoints**: RESTful API for frontend consumption
 
 ### Frontend (React + Vite)
+
 - **Gmail API Client**: Axios-based client with automatic token refresh
 - **React Query**: Data fetching with caching and background updates
+- **IndexedDB Cache**: Persistent offline storage for emails and labels
+- **Service Worker**: Network-first caching for API responses
 - **Responsive Design**: Mobile-first with 3-column desktop layout
-- **Offline-First**: IndexedDB caching via React Query
 
 ## Prerequisites
 
@@ -59,7 +63,7 @@ A full-stack email client application built with React and NestJS that integrate
 2. Add `gmail_refresh_token` column to users table:
 
 ```sql
-ALTER TABLE users 
+ALTER TABLE users
 ADD COLUMN gmail_refresh_token TEXT;
 ```
 
@@ -68,16 +72,19 @@ ADD COLUMN gmail_refresh_token TEXT;
 ### 3. Backend Setup
 
 1. Navigate to backend directory:
+
 ```bash
 cd backend
 ```
 
 2. Install dependencies:
+
 ```bash
 npm install
 ```
 
 3. Create `.env` file:
+
 ```env
 # Server
 PORT=3000
@@ -100,6 +107,7 @@ GMAIL_REDIRECT_URI=http://localhost:3000/api/gmail/callback
 ```
 
 4. Start development server:
+
 ```bash
 npm run start:dev
 ```
@@ -109,22 +117,26 @@ Backend will run on `http://localhost:3000`
 ### 4. Frontend Setup
 
 1. Navigate to frontend directory:
+
 ```bash
 cd frontend
 ```
 
 2. Install dependencies:
+
 ```bash
 npm install
 ```
 
 3. Create `.env` file:
+
 ```env
 VITE_API_URL=http://localhost:3000
 VITE_GOOGLE_CLIENT_ID=your-google-client-id.apps.googleusercontent.com
 ```
 
 4. Start development server:
+
 ```bash
 npm run dev
 ```
@@ -153,12 +165,14 @@ Frontend will run on `http://localhost:5173`
 ## API Endpoints
 
 ### Authentication
+
 - `POST /api/auth/signup` - Create new account
 - `POST /api/auth/login` - Login with email/password
 - `POST /api/auth/google` - Login with Google
 - `POST /api/auth/logout` - Logout
 
 ### Gmail
+
 - `GET /api/gmail/auth` - Get OAuth authorization URL
 - `GET /api/gmail/callback` - OAuth callback handler
 - `POST /api/gmail/connect` - Connect Gmail with auth code
@@ -177,11 +191,13 @@ Frontend will run on `http://localhost:5173`
 ## Security Considerations
 
 ### Token Storage
+
 - **Access Tokens**: Stored in-memory on frontend (never in localStorage)
 - **Refresh Tokens**: Stored server-side in Supabase database
 - **Gmail Refresh Tokens**: Stored encrypted in database, never sent to frontend
 
 ### OAuth2 Flow
+
 1. Frontend requests auth URL from backend
 2. User authorizes on Google's servers
 3. Google redirects to backend callback with authorization code
@@ -190,10 +206,69 @@ Frontend will run on `http://localhost:5173`
 6. Frontend receives session token only
 
 ### CORS & Security Headers
+
 - CORS configured to allow only frontend origin
 - Helmet.js for security headers
 - Rate limiting on authentication endpoints
 - JWT tokens with short expiration (15 minutes)
+
+## Offline Caching (IndexedDB + Stale-While-Revalidate)
+
+This application implements comprehensive offline support using IndexedDB for persistent storage and a stale-while-revalidate caching strategy.
+
+### How It Works
+
+1. **IndexedDB Storage**: Emails, labels, and email details are stored in IndexedDB for persistent offline access
+2. **Stale-While-Revalidate**: Cached data is served immediately while fresh data is fetched in the background
+3. **Service Worker**: API responses are cached at the network layer for additional resilience
+4. **Optimistic Updates**: UI updates immediately on user actions, with background sync to server
+
+### Cache Storage Structure
+
+| Store           | Contents                | TTL        |
+| --------------- | ----------------------- | ---------- |
+| `labels`        | Gmail mailbox labels    | 10 minutes |
+| `emails`        | Email lists per mailbox | 5 minutes  |
+| `email-details` | Full email content      | 30 minutes |
+| `metadata`      | Sync timestamps         | N/A        |
+
+### Offline Capabilities
+
+- **View cached emails**: Previously loaded emails are available offline
+- **Navigate mailboxes**: Switch between cached mailboxes without network
+- **Read email details**: Full email content cached for offline reading
+- **Cache status indicators**: Visual feedback showing cached/stale data
+- **Automatic sync**: Data refreshes automatically when back online
+
+### Testing Offline Mode
+
+1. Load the inbox with Gmail connected
+2. Navigate through different mailboxes to cache data
+3. Open Chrome DevTools → Network → Check "Offline"
+4. The app continues to work with cached data
+5. The offline indicator shows cached email count
+6. Uncheck "Offline" to see automatic background refresh
+
+### Cache Management
+
+```typescript
+// Programmatic cache control (available in browser console)
+import { clearAllCache, getCacheStats } from "./lib/emailCache";
+
+// View cache statistics
+const stats = await getCacheStats();
+console.log(stats);
+
+// Clear all cached data
+await clearAllCache();
+```
+
+### Environment Variables for Service Worker
+
+```env
+# Enable service worker in development (optional)
+VITE_ENABLE_SW=true
+```
 
 ## Deployment
 
@@ -215,6 +290,7 @@ npm run start:prod
 ### Frontend Deployment (Vercel/Netlify)
 
 1. Set environment variables:
+
    - `VITE_API_URL=https://your-backend-url.com`
    - `VITE_GOOGLE_CLIENT_ID=your-client-id`
 
@@ -228,9 +304,7 @@ npm run build
 
 ```json
 {
-  "rewrites": [
-    { "source": "/(.*)", "destination": "/index.html" }
-  ]
+  "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }]
 }
 ```
 
@@ -241,6 +315,7 @@ npm run build
 To test token refresh logic:
 
 1. Set short JWT expiration in backend `.env`:
+
 ```env
 JWT_EXPIRATION=1m
 ```
@@ -258,18 +333,21 @@ JWT_EXPIRATION=1m
 ## Troubleshooting
 
 ### "Gmail not connected" Error
+
 - Check that Gmail API is enabled in Google Cloud Console
 - Verify OAuth credentials are correct in `.env`
 - Ensure redirect URI matches exactly (including http/https)
 - Check database for stored refresh token
 
 ### Token Refresh Fails
+
 - Verify refresh token exists in database
 - Check that token hasn't been revoked in Google Account
 - Ensure OAuth scopes haven't changed
 - Try disconnecting and reconnecting Gmail
 
 ### CORS Errors
+
 - Verify `FRONTEND_URL` in backend `.env` matches frontend URL
 - Check that CORS is enabled in `main.ts`
 - Ensure credentials are included in frontend requests
@@ -277,6 +355,7 @@ JWT_EXPIRATION=1m
 ## Tech Stack
 
 ### Backend
+
 - NestJS - Node.js framework
 - TypeScript - Type safety
 - Supabase - PostgreSQL database
@@ -284,6 +363,7 @@ JWT_EXPIRATION=1m
 - Google APIs - Gmail integration
 
 ### Frontend
+
 - React 18 - UI library
 - TypeScript - Type safety
 - Vite - Build tool
@@ -307,6 +387,7 @@ MIT
 ## Support
 
 For issues and questions:
+
 - Open an issue on GitHub
 - Check existing issues for solutions
 - Review Google Gmail API documentation

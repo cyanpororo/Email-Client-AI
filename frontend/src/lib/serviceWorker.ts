@@ -37,6 +37,18 @@ export function registerServiceWorker() {
       navigator.serviceWorker.addEventListener("controllerchange", () => {
         window.location.reload();
       });
+
+      // Listen for messages from service worker
+      navigator.serviceWorker.addEventListener("message", (event) => {
+        if (event.data && event.data.type === "SYNC_EMAILS") {
+          // Trigger email sync in the app
+          window.dispatchEvent(new CustomEvent("sw-sync-emails"));
+        }
+        if (event.data && event.data.type === "BACKGROUND_SYNC") {
+          // Trigger background sync
+          window.dispatchEvent(new CustomEvent("sw-background-sync"));
+        }
+      });
     });
   } else {
     console.log("⚠️ Service Workers not supported in this browser");
@@ -70,5 +82,80 @@ export function clearCache() {
       .then(() => {
         console.log("✅ All caches cleared");
       });
+  }
+}
+
+/**
+ * Clear only the API cache
+ */
+export function clearApiCache() {
+  if ("serviceWorker" in navigator && navigator.serviceWorker.controller) {
+    navigator.serviceWorker.controller.postMessage({ type: "CLEAR_API_CACHE" });
+    console.log("📤 Requested API cache clear");
+  }
+}
+
+/**
+ * Prefetch URLs into the service worker cache
+ */
+export function prefetchUrls(urls: string[]) {
+  if ("serviceWorker" in navigator && navigator.serviceWorker.controller) {
+    navigator.serviceWorker.controller.postMessage({
+      type: "PREFETCH",
+      urls,
+    });
+    console.log("📤 Requested prefetch for:", urls.length, "URLs");
+  }
+}
+
+/**
+ * Request a background sync
+ */
+export async function requestSync(tag: string = "sync-emails") {
+  if (
+    "serviceWorker" in navigator &&
+    "sync" in window.ServiceWorkerRegistration.prototype
+  ) {
+    try {
+      const registration = await navigator.serviceWorker.ready;
+      // @ts-ignore - sync API not fully typed
+      await (registration as any).sync.register(tag);
+      console.log("📤 Background sync registered:", tag);
+    } catch (error) {
+      console.error("❌ Background sync registration failed:", error);
+    }
+  } else {
+    console.log("⚠️ Background sync not supported");
+  }
+}
+
+/**
+ * Check if service worker is active
+ */
+export function isServiceWorkerActive(): boolean {
+  return !!("serviceWorker" in navigator && navigator.serviceWorker.controller);
+}
+
+/**
+ * Get service worker registration status
+ */
+export async function getServiceWorkerStatus(): Promise<{
+  registered: boolean;
+  active: boolean;
+  waiting: boolean;
+}> {
+  if (!("serviceWorker" in navigator)) {
+    return { registered: false, active: false, waiting: false };
+  }
+
+  try {
+    const registration = await navigator.serviceWorker.getRegistration();
+    return {
+      registered: !!registration,
+      active: !!registration?.active,
+      waiting: !!registration?.waiting,
+    };
+  } catch {
+    return { registered: false, active: false, waiting: false };
   }
 }

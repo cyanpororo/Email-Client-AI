@@ -1,10 +1,20 @@
 import { useState, useEffect, useCallback } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import * as gmailApi from "../../api/gmail";
 import { Card } from "../ui/card";
 import { Button } from "../ui/button";
 import { OfflineIndicator, useOnlineStatus } from "../OfflineIndicator";
 import { EmailFrame } from "../EmailFrame";
+import {
+  useGmailLabels,
+  useGmailEmails,
+  useGmailEmailDetail,
+  useMarkAsReadMutation,
+  useMarkAsUnreadMutation,
+  useToggleStarMutation,
+  useDeleteEmailMutation,
+  useEmailSync,
+} from "../../hooks/useOfflineEmails";
 
 // Type for mapped email (UI-compatible format)
 type Email = {
@@ -35,7 +45,9 @@ export default function Inbox() {
   );
 
   // Compose form state
-  const [composeMode, setComposeMode] = useState<"new" | "reply" | "forward">("new");
+  const [composeMode, setComposeMode] = useState<"new" | "reply" | "forward">(
+    "new"
+  );
   const [composeTo, setComposeTo] = useState("");
   const [composeCc, setComposeCc] = useState("");
   const [composeSubject, setComposeSubject] = useState("");
@@ -48,6 +60,7 @@ export default function Inbox() {
 
   const queryClient = useQueryClient();
   const isOnline = useOnlineStatus();
+  const { isSyncing, lastSyncTime, sync } = useEmailSync();
 
   // Responsive handling
   useEffect(() => {
@@ -59,113 +72,74 @@ export default function Inbox() {
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
-  // Fetch Gmail labels (mailboxes) - this determines if Gmail is connected
+  // Fetch Gmail labels (mailboxes) using offline-first hook
   const {
-    data: gmailLabels = [],
-    error: labelsError,
+    labels: gmailLabels,
     isLoading: labelsLoading,
-  } = useQuery({
-    queryKey: ["gmailLabels"],
-    queryFn: gmailApi.getGmailLabels,
-    staleTime: 10 * 60 * 1000,
-    gcTime: 30 * 60 * 1000,
-    retry: 1,
-  });
+    isError: labelsError,
+    isFromCache: labelsFromCache,
+  } = useGmailLabels();
 
   // Map labels to mailbox format
   const mailboxes = gmailLabels.map(gmailApi.mapLabelToMailbox);
 
   // Separate standard folders from custom folders
-  const standardFolderIds = ['INBOX', 'STARRED', 'SENT', 'DRAFT', 'TRASH'];
-  const standardMailboxes = mailboxes.filter(m => standardFolderIds.includes(m.id));
-  const customMailboxes = mailboxes.filter(m => !standardFolderIds.includes(m.id));
+  const standardFolderIds = ["INBOX", "STARRED", "SENT", "DRAFT", "TRASH"];
+  const standardMailboxes = mailboxes.filter((m) =>
+    standardFolderIds.includes(m.id)
+  );
+  const customMailboxes = mailboxes.filter(
+    (m) => !standardFolderIds.includes(m.id)
+  );
 
   // Check if Gmail is connected
-  const isGmailConnected = mailboxes.length > 0 && !labelsError;
-
+  const isGmailConnected = gmailLabels.length > 0 && !labelsError;
 
   // Show loading while checking Gmail connection (only on initial load, not refetch)
-  const isCheckingConnection = labelsLoading;
+  const isCheckingConnection = labelsLoading && gmailLabels.length === 0;
 
-  // Fetch emails for selected mailbox
+  // Fetch emails for selected mailbox using offline-first hook
   const {
-    data: gmailEmailsResponse,
+    emails: gmailEmailsRaw,
     isLoading: emailsLoading,
     isFetching: emailsFetching,
-    error: emailsError,
-  } = useQuery({
-    queryKey: ["gmailEmails", selectedMailboxId],
-    queryFn: () => gmailApi.getGmailEmails(selectedMailboxId, 50),
-    enabled: isGmailConnected,
-    staleTime: 3 * 60 * 1000,
-    gcTime: 15 * 60 * 1000,
-    retry: 1,
-  });
+    isError: emailsError,
+    isFromCache: emailsFromCache,
+    isStale: emailsStale,
+  } = useGmailEmails(selectedMailboxId, 50, isGmailConnected);
 
   // Map Gmail emails to UI format
-  const emails: Email[] = (gmailEmailsResponse?.emails || []).map(
+  const emails: Email[] = (gmailEmailsRaw || []).map(
     gmailApi.mapGmailEmailToEmail
   );
 
-  // Fetch selected email details
-  const { data: selectedGmailEmail } = useQuery({
-    queryKey: ["gmailEmail", selectedEmailId],
-    queryFn: () =>
-      selectedEmailId ? gmailApi.getGmailEmailById(selectedEmailId) : null,
-    enabled: !!selectedEmailId && isGmailConnected,
-    staleTime: 5 * 60 * 1000,
-    gcTime: 20 * 60 * 1000,
-  });
+  // Fetch selected email details using offline-first hook
+  const { email: selectedGmailEmail } = useGmailEmailDetail(
+    selectedEmailId,
+    isGmailConnected
+  );
 
   const selectedEmail = selectedGmailEmail
     ? gmailApi.mapGmailEmailToEmail(selectedGmailEmail)
     : null;
 
-  // Mark as read mutation
-  const markAsReadMutation = useMutation({
-    mutationFn: gmailApi.markGmailAsRead,
-    onSuccess: () => {
-      queryClient.invalidateQueries({
-        queryKey: ["gmailEmails", selectedMailboxId],
-      });
-      queryClient.invalidateQueries({ queryKey: ["gmailLabels"] });
-    },
-  });
+  // Use optimistic update mutations from hooks
+  const markAsReadMutation = useMarkAsReadMutation(selectedMailboxId);
+  const markAsUnreadMutation = useMarkAsUnreadMutation(selectedMailboxId);
+  const toggleStarMutation = useToggleStarMutation(selectedMailboxId);
+  const deleteEmailMutation = useDeleteEmailMutation(selectedMailboxId);
 
-  // Mark as unread mutation
-  const markAsUnreadMutation = useMutation({
-    mutationFn: gmailApi.markGmailAsUnread,
-    onSuccess: () => {
-      queryClient.invalidateQueries({
-        queryKey: ["gmailEmails", selectedMailboxId],
+  // Wrap delete mutation to also clear selectedEmailId
+  const handleDeleteEmail = useCallback(
+    (emailId: string) => {
+      deleteEmailMutation.mutate(emailId, {
+        onSuccess: () => {
+          setSelectedEmailId(null);
+        },
       });
-      queryClient.invalidateQueries({ queryKey: ["gmailLabels"] });
     },
-  });
-
-  // Toggle star mutation
-  const toggleStarMutation = useMutation({
-    mutationFn: ({ emailId, starred }: { emailId: string; starred: boolean }) =>
-      gmailApi.toggleGmailStar(emailId, starred),
-    onSuccess: () => {
-      queryClient.invalidateQueries({
-        queryKey: ["gmailEmails", selectedMailboxId],
-      });
-      queryClient.invalidateQueries({ queryKey: ["gmailEmail", selectedEmailId] });
-    },
-  });
-
-  // Delete mutation
-  const deleteMutation = useMutation({
-    mutationFn: gmailApi.deleteGmailEmail,
-    onSuccess: () => {
-      setSelectedEmailId(null);
-      queryClient.invalidateQueries({
-        queryKey: ["gmailEmails", selectedMailboxId],
-      });
-      queryClient.invalidateQueries({ queryKey: ["gmailLabels"] });
-    },
-  });
+    [deleteEmailMutation]
+  );
 
   // Bulk mark as read
   const markSelectedAsReadMutation = useMutation({
@@ -240,7 +214,11 @@ export default function Inbox() {
       console.error("Failed to send email:", error);
       if (error.response?.data) {
         console.error("Error details:", error.response.data);
-        alert(`Failed to send email: ${error.response.data.message || "Unknown error"}`);
+        alert(
+          `Failed to send email: ${
+            error.response.data.message || "Unknown error"
+          }`
+        );
       } else {
         alert("Failed to send email. Please try again.");
       }
@@ -262,7 +240,9 @@ export default function Inbox() {
     setComposeMode("reply");
     setReplyToEmailId(email.id);
     setComposeTo(email.from.email);
-    setComposeSubject(email.subject.startsWith("Re:") ? email.subject : `Re: ${email.subject}`);
+    setComposeSubject(
+      email.subject.startsWith("Re:") ? email.subject : `Re: ${email.subject}`
+    );
     setComposeBody("");
     setShowCompose(true);
   }, []);
@@ -272,12 +252,16 @@ export default function Inbox() {
     setComposeMode("reply");
     setReplyToEmailId(email.id);
     setComposeTo(email.from.email);
-    const ccEmails = email.to.filter(t => t.email !== email.from.email).map(t => t.email);
+    const ccEmails = email.to
+      .filter((t) => t.email !== email.from.email)
+      .map((t) => t.email);
     if (email.cc) {
-      ccEmails.push(...email.cc.map(c => c.email));
+      ccEmails.push(...email.cc.map((c) => c.email));
     }
     setComposeCc(ccEmails.join(", "));
-    setComposeSubject(email.subject.startsWith("Re:") ? email.subject : `Re: ${email.subject}`);
+    setComposeSubject(
+      email.subject.startsWith("Re:") ? email.subject : `Re: ${email.subject}`
+    );
     setComposeBody("");
     setShowCompose(true);
   };
@@ -286,7 +270,9 @@ export default function Inbox() {
   const handleForward = (email: Email) => {
     setComposeMode("forward");
     setComposeTo("");
-    setComposeSubject(email.subject.startsWith("Fwd:") ? email.subject : `Fwd: ${email.subject}`);
+    setComposeSubject(
+      email.subject.startsWith("Fwd:") ? email.subject : `Fwd: ${email.subject}`
+    );
     setComposeBody("");
     setShowCompose(true);
   };
@@ -338,19 +324,19 @@ export default function Inbox() {
   // Handle OAuth callback
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    const gmailStatus = params.get('gmail');
-    const errorMessage = params.get('message');
+    const gmailStatus = params.get("gmail");
+    const errorMessage = params.get("message");
 
-    if (gmailStatus === 'connected') {
+    if (gmailStatus === "connected") {
       // Gmail connected successfully, refresh the page to load emails
-      alert('Gmail connected successfully!');
+      alert("Gmail connected successfully!");
       // Remove query params and refresh
-      window.history.replaceState({}, '', '/inbox');
-      queryClient.invalidateQueries({ queryKey: ['gmailLabels'] });
-    } else if (gmailStatus === 'error') {
-      alert(`Failed to connect Gmail: ${errorMessage || 'Unknown error'}`);
+      window.history.replaceState({}, "", "/inbox");
+      queryClient.invalidateQueries({ queryKey: ["gmailLabels"] });
+    } else if (gmailStatus === "error") {
+      alert(`Failed to connect Gmail: ${errorMessage || "Unknown error"}`);
       // Remove query params
-      window.history.replaceState({}, '', '/inbox');
+      window.history.replaceState({}, "", "/inbox");
     }
   }, [queryClient]);
 
@@ -404,7 +390,7 @@ export default function Inbox() {
         case "Delete":
           if (selectedEmailId && !e.ctrlKey && !e.metaKey) {
             e.preventDefault();
-            deleteMutation.mutate(selectedEmailId);
+            handleDeleteEmail(selectedEmailId);
           }
           break;
         case "c":
@@ -424,7 +410,7 @@ export default function Inbox() {
     selectedEmail,
     handleEmailClick,
     toggleStarMutation,
-    deleteMutation,
+    handleDeleteEmail,
     handleReply,
   ]);
 
@@ -433,14 +419,14 @@ export default function Inbox() {
     const handleClickOutside = (e: MouseEvent) => {
       if (showMoveMenu) {
         const target = e.target as HTMLElement;
-        if (!target.closest('.move-menu-container')) {
+        if (!target.closest(".move-menu-container")) {
           setShowMoveMenu(false);
         }
       }
     };
 
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [showMoveMenu]);
 
   // Toggle email selection
@@ -487,6 +473,19 @@ export default function Inbox() {
     }
   };
 
+  // Format relative time for last sync
+  const formatRelativeTime = (timestamp: number) => {
+    const now = Date.now();
+    const diffMs = now - timestamp;
+    const diffMinutes = Math.floor(diffMs / (1000 * 60));
+    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+
+    if (diffMinutes < 1) return "just now";
+    if (diffMinutes < 60) return `${diffMinutes}m ago`;
+    if (diffHours < 24) return `${diffHours}h ago`;
+    return new Date(timestamp).toLocaleDateString();
+  };
+
   // Show loading while checking Gmail connection
   if (isCheckingConnection) {
     return (
@@ -499,8 +498,8 @@ export default function Inbox() {
     );
   }
 
-  // Show Gmail connection prompt if not connected
-  if (!isGmailConnected && labelsError) {
+  // Show Gmail connection prompt if not connected (only when online and no cached data)
+  if (!isGmailConnected && labelsError && !labelsFromCache) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4">
         <Card className="w-full max-w-md p-6">
@@ -511,8 +510,20 @@ export default function Inbox() {
               To use this email client, you need to connect your Gmail account.
               This will allow you to read, send, and manage your emails.
             </p>
-            <Button onClick={handleConnectGmail} className="w-full">
-              Connect Gmail Account
+            {!isOnline && (
+              <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-4">
+                <p className="text-amber-700 text-sm">
+                  📡 You're offline. Connect to the internet to set up your
+                  Gmail account.
+                </p>
+              </div>
+            )}
+            <Button
+              onClick={handleConnectGmail}
+              className="w-full"
+              disabled={!isOnline}
+            >
+              {isOnline ? "Connect Gmail Account" : "Offline - Cannot Connect"}
             </Button>
           </div>
         </Card>
@@ -546,8 +557,8 @@ export default function Inbox() {
                 {mobileView === "detail" && selectedEmail
                   ? "Email"
                   : mobileView === "folders"
-                    ? "Folders"
-                    : "Inbox"}
+                  ? "Folders"
+                  : "Inbox"}
               </h1>
             </div>
           ) : (
@@ -604,10 +615,11 @@ export default function Inbox() {
                   <button
                     key={mailbox.id}
                     onClick={() => handleMailboxClick(mailbox.id)}
-                    className={`w-full text-left px-3 md:px-4 py-2.5 md:py-3 rounded-lg mb-1 transition-colors text-sm md:text-base ${selectedMailboxId === mailbox.id
-                      ? "bg-blue-50 text-blue-700 font-medium"
-                      : "hover:bg-gray-100 text-gray-700"
-                      }`}
+                    className={`w-full text-left px-3 md:px-4 py-2.5 md:py-3 rounded-lg mb-1 transition-colors text-sm md:text-base ${
+                      selectedMailboxId === mailbox.id
+                        ? "bg-blue-50 text-blue-700 font-medium"
+                        : "hover:bg-gray-100 text-gray-700"
+                    }`}
                     aria-current={
                       selectedMailboxId === mailbox.id ? "page" : undefined
                     }
@@ -639,10 +651,11 @@ export default function Inbox() {
                   <button
                     key={mailbox.id}
                     onClick={() => handleMailboxClick(mailbox.id)}
-                    className={`w-full text-left px-3 md:px-4 py-2.5 md:py-3 rounded-lg mb-1 transition-colors text-sm md:text-base ${selectedMailboxId === mailbox.id
-                      ? "bg-blue-50 text-blue-700 font-medium"
-                      : "hover:bg-gray-100 text-gray-700"
-                      }`}
+                    className={`w-full text-left px-3 md:px-4 py-2.5 md:py-3 rounded-lg mb-1 transition-colors text-sm md:text-base ${
+                      selectedMailboxId === mailbox.id
+                        ? "bg-blue-50 text-blue-700 font-medium"
+                        : "hover:bg-gray-100 text-gray-700"
+                    }`}
                     aria-current={
                       selectedMailboxId === mailbox.id ? "page" : undefined
                     }
@@ -696,25 +709,52 @@ export default function Inbox() {
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() =>
-                  queryClient.invalidateQueries({
-                    queryKey: ["gmailEmails", selectedMailboxId],
-                  })
-                }
-                aria-label="Refresh email list"
-                className={`h-7 md:h-8 px-2 ${emailsFetching ? "animate-spin" : ""
-                  }`}
+                onClick={() => sync()}
+                aria-label="Sync emails"
+                disabled={!isOnline || isSyncing}
+                className={`h-7 md:h-8 px-2 ${isSyncing ? "animate-spin" : ""}`}
               >
                 🔄
               </Button>
-              {emailsFetching && (
+              {isSyncing && (
                 <span className="text-xs text-blue-600 animate-pulse hidden md:inline">
                   Syncing...
                 </span>
               )}
+              {emailsFetching && !isSyncing && (
+                <span className="text-xs text-blue-600 animate-pulse hidden md:inline">
+                  Updating...
+                </span>
+              )}
+              {/* Cache status indicators */}
+              {emailsFromCache && (
+                <span
+                  className="text-xs text-amber-600"
+                  title={
+                    emailsStale
+                      ? "Cached data may be outdated"
+                      : "Using cached data"
+                  }
+                >
+                  📦{" "}
+                  <span className="hidden sm:inline">
+                    {emailsStale ? "Stale Cache" : "Cached"}
+                  </span>
+                </span>
+              )}
               {!isOnline && emails.length > 0 && (
-                <span className="text-xs text-amber-600">
-                  📦 <span className="hidden sm:inline">Cached</span>
+                <span className="text-xs text-gray-500 hidden md:inline">
+                  • Offline Mode
+                </span>
+              )}
+              {lastSyncTime && (
+                <span
+                  className="text-xs text-gray-400 hidden lg:inline"
+                  title={`Last synced: ${new Date(
+                    lastSyncTime
+                  ).toLocaleString()}`}
+                >
+                  • Synced {formatRelativeTime(lastSyncTime)}
                 </span>
               )}
               {selectedEmails.size > 0 && (
@@ -780,10 +820,11 @@ export default function Inbox() {
                   <div
                     key={email.id}
                     role="listitem"
-                    className={`border-b border-gray-100 p-2.5 md:p-4 cursor-pointer transition-colors ${selectedEmailId === email.id
-                      ? "bg-blue-50 border-l-4 border-l-blue-600"
-                      : "hover:bg-gray-50"
-                      } ${!email.isRead ? "bg-blue-50/30" : ""}`}
+                    className={`border-b border-gray-100 p-2.5 md:p-4 cursor-pointer transition-colors ${
+                      selectedEmailId === email.id
+                        ? "bg-blue-50 border-l-4 border-l-blue-600"
+                        : "hover:bg-gray-50"
+                    } ${!email.isRead ? "bg-blue-50/30" : ""}`}
                     onClick={() => handleEmailClick(email)}
                   >
                     <div className="flex items-start gap-2 md:gap-3">
@@ -815,8 +856,9 @@ export default function Inbox() {
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between mb-0.5 md:mb-1">
                           <span
-                            className={`text-sm md:text-base font-medium truncate ${!email.isRead ? "text-gray-900" : "text-gray-700"
-                              }`}
+                            className={`text-sm md:text-base font-medium truncate ${
+                              !email.isRead ? "text-gray-900" : "text-gray-700"
+                            }`}
                           >
                             {email.from.name || email.from.email}
                           </span>
@@ -825,10 +867,11 @@ export default function Inbox() {
                           </span>
                         </div>
                         <div
-                          className={`text-xs md:text-sm truncate mb-0.5 md:mb-1 ${!email.isRead
-                            ? "font-semibold text-gray-900"
-                            : "text-gray-600"
-                            }`}
+                          className={`text-xs md:text-sm truncate mb-0.5 md:mb-1 ${
+                            !email.isRead
+                              ? "font-semibold text-gray-900"
+                              : "text-gray-600"
+                          }`}
                         >
                           {email.subject}
                         </div>
@@ -991,8 +1034,8 @@ export default function Inbox() {
 
                     <Button
                       variant="outline"
-                      onClick={() => deleteMutation.mutate(selectedEmail.id)}
-                      disabled={deleteMutation.isPending}
+                      onClick={() => handleDeleteEmail(selectedEmail.id)}
+                      disabled={deleteEmailMutation.isPending}
                       className="text-xs md:text-sm h-8 md:h-9"
                     >
                       Delete
@@ -1081,8 +1124,16 @@ export default function Inbox() {
                   className="space-y-3 md:space-y-4"
                   onSubmit={(e) => {
                     e.preventDefault();
-                    const toEmails = composeTo.split(',').map(e => e.trim()).filter(Boolean);
-                    const ccEmails = composeCc ? composeCc.split(',').map(e => e.trim()).filter(Boolean) : undefined;
+                    const toEmails = composeTo
+                      .split(",")
+                      .map((e) => e.trim())
+                      .filter(Boolean);
+                    const ccEmails = composeCc
+                      ? composeCc
+                          .split(",")
+                          .map((e) => e.trim())
+                          .filter(Boolean)
+                      : undefined;
 
                     sendEmailMutation.mutate({
                       to: toEmails,
@@ -1165,7 +1216,7 @@ export default function Inbox() {
                       disabled={sendEmailMutation.isPending}
                       className="text-xs md:text-sm h-8 md:h-9"
                     >
-                      {sendEmailMutation.isPending ? 'Sending...' : 'Send'}
+                      {sendEmailMutation.isPending ? "Sending..." : "Send"}
                     </Button>
                   </div>
                 </form>
@@ -1173,7 +1224,7 @@ export default function Inbox() {
             </Card>
           </div>
         )}
-      </div >
+      </div>
     </>
   );
 }
