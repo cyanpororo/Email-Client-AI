@@ -74,13 +74,6 @@ export function useGmailLabels(): UseGmailLabelsResult {
     refetchOnReconnect: true,
   });
 
-  // Update cache when fresh data is fetched
-  useEffect(() => {
-    if (query.data && !isFromCache) {
-      emailCache.cacheLabels(query.data).catch(console.error);
-    }
-  }, [query.data, isFromCache]);
-
   return {
     labels: query.data || [],
     isLoading: query.isLoading,
@@ -174,15 +167,6 @@ export function useGmailEmails(
     refetchOnReconnect: true,
   });
 
-  // Cache fresh data
-  useEffect(() => {
-    if (query.data && !isFromCache) {
-      emailCache
-        .cacheEmails(labelId, query.data.emails, query.data.nextPageToken)
-        .catch(console.error);
-    }
-  }, [query.data, labelId, isFromCache]);
-
   return {
     emails: query.data?.emails || [],
     nextPageToken: query.data?.nextPageToken,
@@ -261,13 +245,6 @@ export function useGmailEmailDetail(
     gcTime: 20 * 60 * 1000,
     retry: isOnline ? 1 : 0,
   });
-
-  // Cache fresh data
-  useEffect(() => {
-    if (query.data && !isFromCache) {
-      emailCache.cacheEmailDetail(query.data).catch(console.error);
-    }
-  }, [query.data, isFromCache]);
 
   return {
     email: query.data || null,
@@ -368,8 +345,8 @@ export function useMarkAsUnreadMutation(labelId: string) {
         }
       );
 
-      await emailCache.updateCachedEmail(labelId, emailId, { isRead: false });
-      await emailCache.updateCachedEmailDetail(emailId, { isRead: false });
+      emailCache.updateCachedEmail(labelId, emailId, { isRead: false });
+      emailCache.updateCachedEmailDetail(emailId, { isRead: false });
 
       return { previousEmails };
     },
@@ -418,10 +395,10 @@ export function useToggleStarMutation(labelId: string) {
         }
       );
 
-      await emailCache.updateCachedEmail(labelId, emailId, {
+      emailCache.updateCachedEmail(labelId, emailId, {
         isStarred: starred,
       });
-      await emailCache.updateCachedEmailDetail(emailId, { isStarred: starred });
+      emailCache.updateCachedEmailDetail(emailId, { isStarred: starred });
 
       return { previousEmails };
     },
@@ -473,7 +450,7 @@ export function useDeleteEmailMutation(labelId: string) {
       return { previousEmails };
     },
     onSuccess: async (_data, emailId, _context) => {
-      await emailCache.removeCachedEmail(labelId, emailId);
+      emailCache.removeCachedEmail(labelId, emailId);
     },
     onError: (_err, _emailId, context) => {
       if (context?.previousEmails) {
