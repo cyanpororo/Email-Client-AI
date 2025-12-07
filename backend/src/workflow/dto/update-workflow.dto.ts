@@ -5,9 +5,13 @@ export class UpdateWorkflowDto {
     @IsOptional()
     status?: string;
 
+    @IsString()
+    @IsOptional()
+    previousStatus?: string;
+
     @IsDateString()
     @IsOptional()
-    snoozedUntil?: string;
+    snoozedUntil?: string | null;
 
     @IsString()
     @IsOptional()

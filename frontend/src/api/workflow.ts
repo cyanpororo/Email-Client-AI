@@ -13,7 +13,7 @@ export const fetchWorkflows = async (messageIds: string[]) => {
     return response.data as WorkflowState[];
 };
 
-export const updateWorkflow = async (messageId: string, data: { status?: string, snoozedUntil?: string, summary?: string }) => {
+export const updateWorkflow = async (messageId: string, data: { status?: string, previousStatus?: string, snoozedUntil?: string | null, summary?: string }) => {
     const response = await api.put(`/workflow/${messageId}`, data);
     return response.data;
 };
