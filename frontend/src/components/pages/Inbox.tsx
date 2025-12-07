@@ -21,9 +21,11 @@ import { MailboxSidebar } from "./inbox/MailboxSidebar";
 import { EmailListView } from "./inbox/EmailListView";
 import { EmailDetail } from "./inbox/EmailDetail";
 import { ComposeModal } from "./inbox/ComposeModal";
+import { KanbanBoard } from "./inbox/KanbanBoard";
 
 export default function Inbox() {
   const [selectedMailboxId, setSelectedMailboxId] = useState("INBOX");
+  const [viewMode, setViewMode] = useState<'list' | 'kanban'>('list');
   const [selectedEmailId, setSelectedEmailId] = useState<string | null>(null);
   const [selectedEmails, setSelectedEmails] = useState<Set<string>>(new Set());
   const [showCompose, setShowCompose] = useState(false);
@@ -528,6 +530,20 @@ export default function Inbox() {
             </>
           )}
           <div className="flex items-center gap-4">
+            <div className="flex bg-gray-100 rounded-lg p-1 border border-gray-200 mr-2">
+              <button
+                className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${viewMode === 'list' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-900'}`}
+                onClick={() => setViewMode('list')}
+              >
+                List
+              </button>
+              <button
+                className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${viewMode === 'kanban' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-900'}`}
+                onClick={() => setViewMode('kanban')}
+              >
+                Kanban
+              </button>
+            </div>
             <div className="relative hidden lg:block">
               <input
                 type="text"
@@ -541,7 +557,7 @@ export default function Inbox() {
       </div>
       <div className="h-[calc(100vh-8rem)] flex overflow-hidden bg-gray-50">
         {/* Column 1: Mailboxes/Folders */}
-        {(!isMobileView || mobileView === "folders") && (
+        {(!isMobileView || mobileView === "folders") && viewMode !== 'kanban' && (
           <MailboxSidebar
             standardMailboxes={standardMailboxes}
             customMailboxes={customMailboxes}
@@ -552,36 +568,58 @@ export default function Inbox() {
         )}
 
         {/* Column 2: Email List */}
+        {/* Column 2: Email List OR Kanban */}
         {(!isMobileView || mobileView === "list") && (
-          <EmailListView
-            emails={emails}
-            selectedEmailId={selectedEmailId}
-            selectedEmails={selectedEmails}
-            selectedMailboxId={selectedMailboxId}
-            isLoading={emailsLoading}
-            isError={emailsError}
-            isFetching={emailsFetching}
-            isFromCache={emailsFromCache}
-            isStale={emailsStale}
-            isOnline={isOnline}
-            isSyncing={isSyncing}
-            lastSyncTime={lastSyncTime}
-            onEmailClick={handleEmailClick}
-            onToggleSelection={toggleEmailSelection}
-            onSelectAll={selectAllEmails}
-            onToggleStar={(emailId, starred) =>
-              toggleStarMutation.mutate({ emailId, starred })
-            }
-            onSync={sync}
-            onMarkAsRead={() => markSelectedAsReadMutation.mutate()}
-            onDelete={() => deleteSelectedMutation.mutate()}
-            isMarkingAsRead={markSelectedAsReadMutation.isPending}
-            isDeleting={deleteSelectedMutation.isPending}
-          />
+          viewMode === 'kanban' ? (
+            <div className="flex-1 h-full overflow-hidden">
+              <KanbanBoard
+                emails={emails}
+                currentMailboxId={selectedMailboxId}
+                onEmailClick={(email) => {
+                  setSelectedEmailId(email.id);
+                  if (isMobileView) {
+                    setMobileView("detail");
+                  } else {
+                    // On desktop, user might want to see detail. 
+                    // Since Kanban replaces the list view, we can either switch back to List view
+                    // or maybe we can keep Detail view visible if we modify layout logic?
+                    // For now, let's switch to List view to show detail as requested "navigate to... detailed view from Week 1"
+                    setViewMode('list');
+                  }
+                }}
+              />
+            </div>
+          ) : (
+            <EmailListView
+              emails={emails}
+              selectedEmailId={selectedEmailId}
+              selectedEmails={selectedEmails}
+              selectedMailboxId={selectedMailboxId}
+              isLoading={emailsLoading}
+              isError={emailsError}
+              isFetching={emailsFetching}
+              isFromCache={emailsFromCache}
+              isStale={emailsStale}
+              isOnline={isOnline}
+              isSyncing={isSyncing}
+              lastSyncTime={lastSyncTime}
+              onEmailClick={handleEmailClick}
+              onToggleSelection={toggleEmailSelection}
+              onSelectAll={selectAllEmails}
+              onToggleStar={(emailId, starred) =>
+                toggleStarMutation.mutate({ emailId, starred })
+              }
+              onSync={sync}
+              onMarkAsRead={() => markSelectedAsReadMutation.mutate()}
+              onDelete={() => deleteSelectedMutation.mutate()}
+              isMarkingAsRead={markSelectedAsReadMutation.isPending}
+              isDeleting={deleteSelectedMutation.isPending}
+            />
+          )
         )}
 
-        {/* Column 3: Email Detail */}
-        {(!isMobileView || mobileView === "detail") && (
+        {/* Column 3: Email Detail (Only show in List mode or if Mobile detail view) */}
+        {(!isMobileView || mobileView === "detail") && viewMode === 'list' && (
           <EmailDetail
             email={selectedEmail}
             customMailboxes={customMailboxes}
