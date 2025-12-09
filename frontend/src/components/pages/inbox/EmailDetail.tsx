@@ -2,6 +2,7 @@ import { Button } from "../../ui/button";
 import { EmailFrame } from "../../EmailFrame";
 import type { Email } from "./types";
 import * as gmailApi from "../../../api/gmail";
+import { getGmailUrl } from "../../../api/gmail";
 
 interface Mailbox {
     id: string;
@@ -174,6 +175,13 @@ export function EmailDetail({
                         className="text-xs md:text-sm h-8 md:h-9"
                     >
                         Mark as {email.isRead ? "Unread" : "Read"}
+                    </Button>
+                    <Button
+                        variant="outline"
+                        onClick={() => window.open(getGmailUrl(email.id, email.threadId), '_blank')}
+                        className="text-xs md:text-sm h-8 md:h-9"
+                    >
+                        🔗 Open in Gmail
                     </Button>
                 </div>
             </div>

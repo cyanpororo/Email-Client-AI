@@ -32,4 +32,13 @@ export class WorkflowController {
     ) {
         return this.workflowService.updateWorkflow(req.user.userId, messageId, updateDto);
     }
+
+    @Post(':messageId/summary')
+    async generateSummary(
+        @Request() req,
+        @Param('messageId') messageId: string,
+        @Body('force') force?: boolean,
+    ) {
+        return this.workflowService.generateSummary(req.user.userId, messageId, force);
+    }
 }

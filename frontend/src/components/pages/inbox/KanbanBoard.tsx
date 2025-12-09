@@ -1,8 +1,8 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { DndContext, DragOverlay, useSensor, useSensors, PointerSensor, TouchSensor, type DragEndEvent, useDroppable } from '@dnd-kit/core';
 import type { Email } from './types';
 import { KanbanCard } from './KanbanCard';
-import { fetchWorkflows, updateWorkflow, type WorkflowState } from '../../../api/workflow';
+import { fetchWorkflows, updateWorkflow, generateSummary, type WorkflowState } from '../../../api/workflow';
 
 interface KanbanBoardProps {
     emails: Email[];
@@ -28,6 +28,9 @@ function DroppableColumn({ id, children }: { id: string; children: React.ReactNo
 export function KanbanBoard({ emails, onEmailClick }: KanbanBoardProps) {
     const [workflows, setWorkflows] = useState<Record<string, WorkflowState>>({});
     const [activeId, setActiveId] = useState<string | null>(null);
+    const [generatingSummaries, setGeneratingSummaries] = useState<Set<string>>(new Set());
+    const [summaryErrors, setSummaryErrors] = useState<Record<string, string>>({});
+    const requestedSummariesRef = useRef<Set<string>>(new Set());
 
     const loadWorkflows = useCallback(() => {
         if (emails.length === 0) return;
@@ -45,6 +48,57 @@ export function KanbanBoard({ emails, onEmailClick }: KanbanBoardProps) {
         const interval = setInterval(loadWorkflows, 30000);
         return () => clearInterval(interval);
     }, [loadWorkflows]);
+
+    // Auto-generate summaries for emails missing one
+    useEffect(() => {
+        const missing = emails.filter(email =>
+            !workflows[email.id]?.summary &&
+            !requestedSummariesRef.current.has(email.id)
+        );
+
+        if (!missing.length) return;
+
+        missing.forEach(email => {
+            requestedSummariesRef.current.add(email.id);
+            setGeneratingSummaries(prev => new Set(prev).add(email.id));
+            setSummaryErrors(prev => {
+                const next = { ...prev };
+                delete next[email.id];
+                return next;
+            });
+            
+            generateSummary(email.id)
+                .then(data => {
+                    setWorkflows(prev => ({
+                        ...prev,
+                        [email.id]: {
+                            ...(prev[email.id] || { id: data.id || 'temp', gmail_message_id: email.id }),
+                            ...data,
+                            gmail_message_id: email.id,
+                        } as WorkflowState
+                    }));
+                    setGeneratingSummaries(prev => {
+                        const next = new Set(prev);
+                        next.delete(email.id);
+                        return next;
+                    });
+                })
+                .catch(err => {
+                    console.error('Failed to generate summary', err);
+                    const errorMessage = err?.response?.data?.message || err?.message || 'Failed to generate summary';
+                    setSummaryErrors(prev => ({
+                        ...prev,
+                        [email.id]: errorMessage
+                    }));
+                    setGeneratingSummaries(prev => {
+                        const next = new Set(prev);
+                        next.delete(email.id);
+                        return next;
+                    });
+                    requestedSummariesRef.current.delete(email.id);
+                });
+        });
+    }, [emails, workflows]);
 
     const sensors = useSensors(
         useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -110,6 +164,42 @@ export function KanbanBoard({ emails, onEmailClick }: KanbanBoardProps) {
         }
     };
 
+    const handleSnooze = async (emailId: string, snoozedUntil: string) => {
+        const currentWorkflow = workflows[emailId];
+        const oldStatus = currentWorkflow?.status || 'Inbox';
+
+        // Optimistic update
+        setWorkflows(prev => ({
+            ...prev,
+            [emailId]: {
+                ...(prev[emailId] || { id: 'temp', gmail_message_id: emailId, summary: null }),
+                status: 'Snoozed',
+                gmail_message_id: emailId,
+                snoozed_until: snoozedUntil,
+                previous_status: oldStatus,
+            } as WorkflowState
+        }));
+
+        try {
+            await updateWorkflow(emailId, {
+                status: 'Snoozed',
+                previousStatus: oldStatus,
+                snoozedUntil,
+            });
+        } catch (err) {
+            console.error("Failed to snooze email", err);
+            // Rollback
+            setWorkflows(prev => ({
+                ...prev,
+                [emailId]: {
+                    ...(prev[emailId] || { id: 'temp', gmail_message_id: emailId, summary: null }),
+                    status: oldStatus,
+                    gmail_message_id: emailId,
+                } as WorkflowState
+            }));
+        }
+    };
+
     const handleDragStart = (event: any) => {
         setActiveId(event.active.id);
     }
@@ -148,6 +238,9 @@ export function KanbanBoard({ emails, onEmailClick }: KanbanBoardProps) {
                                     email={email}
                                     workflow={workflows[email.id]}
                                     onClick={onEmailClick}
+                                    onSnooze={handleSnooze}
+                                    isGeneratingSummary={generatingSummaries.has(email.id)}
+                                    summaryError={summaryErrors[email.id]}
                                 />
                             ))}
                         </DroppableColumn>
@@ -161,6 +254,7 @@ export function KanbanBoard({ emails, onEmailClick }: KanbanBoardProps) {
                             email={activeEmail}
                             workflow={workflows[activeEmail.id]}
                             onClick={() => { }}
+                            onSnooze={handleSnooze}
                         />
                     </div>
                 ) : null}

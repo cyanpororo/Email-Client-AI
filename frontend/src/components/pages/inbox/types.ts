@@ -1,6 +1,7 @@
 // Type for mapped email (UI-compatible format)
 export type Email = {
     id: string;
+    threadId?: string; // Gmail thread ID for linking to Gmail
     mailboxId: string;
     from: { name: string; email: string };
     to: Array<{ name: string; email: string }>;
