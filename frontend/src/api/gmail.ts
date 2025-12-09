@@ -278,6 +278,7 @@ export function mapLabelToMailbox(label: GmailLabel): {
  */
 export function mapGmailEmailToEmail(gmailEmail: GmailEmail): {
     id: string;
+    threadId?: string;
     mailboxId: string;
     from: { name: string; email: string };
     to: Array<{ name: string; email: string }>;
@@ -293,6 +294,7 @@ export function mapGmailEmailToEmail(gmailEmail: GmailEmail): {
 } {
     return {
         id: gmailEmail.id,
+        threadId: gmailEmail.threadId,
         mailboxId: gmailEmail.labelIds[0] || 'INBOX',
         from: gmailEmail.from,
         to: gmailEmail.to,
@@ -306,4 +308,13 @@ export function mapGmailEmailToEmail(gmailEmail: GmailEmail): {
         hasAttachments: gmailEmail.hasAttachments,
         attachments: gmailEmail.attachments,
     };
+}
+
+/**
+ * Get Gmail URL for viewing an email in Gmail
+ */
+export function getGmailUrl(messageId: string, threadId?: string): string {
+    // Use threadId if available, otherwise use messageId
+    const id = threadId || messageId;
+    return `https://mail.google.com/mail/u/0/#inbox/${id}`;
 }

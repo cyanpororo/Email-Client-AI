@@ -39,8 +39,8 @@ export function useGmailLabels(): UseGmailLabelsResult {
         setIsFromCache(true);
         setIsStale(cached.isStale);
 
-        // If online and cache is stale, fetch fresh data in background
-        if (isOnline && cached.isStale) {
+        // If online, always fetch fresh data in background (stale-while-revalidate)
+        if (isOnline) {
           // Don't await - let it update in background
           gmailApi
             .getGmailLabels()
@@ -120,7 +120,7 @@ export function useGmailEmails(
         setIsStale(cached.isStale);
 
         // Background refresh if online and stale
-        if (isOnline && cached.isStale) {
+        if (isOnline) {
           gmailApi
             .getGmailEmails(labelId, limit)
             .then((response) => {
@@ -214,7 +214,7 @@ export function useGmailEmailDetail(
         setIsStale(cached.isStale);
 
         // Background refresh
-        if (isOnline && cached.isStale) {
+        if (isOnline) {
           gmailApi
             .getGmailEmailById(emailId)
             .then((email) => {

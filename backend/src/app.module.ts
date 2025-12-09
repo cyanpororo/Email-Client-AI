@@ -5,6 +5,7 @@ import { AppService } from './app.service';
 import { UserModule } from './user/user.module';
 import { AuthModule } from './auth/auth.module';
 import { GmailModule } from './gmail/gmail.module';
+import { WorkflowModule } from './workflow/workflow.module';
 
 @Module({
   imports: [
@@ -14,6 +15,7 @@ import { GmailModule } from './gmail/gmail.module';
     UserModule,
     AuthModule,
     GmailModule,
+    WorkflowModule,
   ],
   controllers: [AppController],
   providers: [AppService],
