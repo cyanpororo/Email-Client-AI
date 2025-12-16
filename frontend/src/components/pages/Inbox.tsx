@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 import * as gmailApi from "../../api/gmail";
 import { Button } from "../ui/button";
 import { OfflineIndicator, useOnlineStatus } from "../OfflineIndicator";
@@ -22,6 +22,7 @@ import { EmailListView } from "./inbox/EmailListView";
 import { EmailDetail } from "./inbox/EmailDetail";
 import { ComposeModal } from "./inbox/ComposeModal";
 import { KanbanBoard } from "./inbox/KanbanBoard";
+import { SearchResults } from "./inbox/SearchResults";
 
 export default function Inbox() {
   const [selectedMailboxId, setSelectedMailboxId] = useState("INBOX");
@@ -32,6 +33,11 @@ export default function Inbox() {
 
   const [isMobileView, setIsMobileView] = useState(false);
   const [mobileView, setMobileView] = useState<MobileView>("list");
+
+  // Search state
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchActive, setSearchActive] = useState(false);
+  const [debouncedQuery, setDebouncedQuery] = useState("");
 
   // Compose form state
   const [composeMode, setComposeMode] = useState<ComposeMode>("new");
@@ -58,6 +64,30 @@ export default function Inbox() {
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
   }, []);
+
+  // Debounce search query
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedQuery(searchQuery);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  // Perform search when debounced query changes
+  const {
+    data: searchResults,
+    isLoading: searchLoading,
+    isError: searchError,
+  } = useQuery({
+    queryKey: ["gmailSearch", debouncedQuery],
+    queryFn: () => gmailApi.searchGmailEmails(debouncedQuery),
+    enabled: searchActive && debouncedQuery.trim().length > 0,
+  });
+
+  // Map search results to Email format
+  const searchEmails: Email[] = searchResults
+    ? searchResults.emails.map(gmailApi.mapGmailEmailToEmail)
+    : [];
 
   // Fetch Gmail labels (mailboxes) using offline-first hook
   const {
@@ -267,6 +297,21 @@ export default function Inbox() {
   const handleNewCompose = () => {
     resetComposeForm();
     setShowCompose(true);
+  };
+
+  // Handle search
+  const handleSearchSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (searchQuery.trim().length > 0) {
+      setSearchActive(true);
+      setViewMode('list'); // Switch to list view for search results
+    }
+  };
+
+  const handleClearSearch = () => {
+    setSearchQuery("");
+    setSearchActive(false);
+    setDebouncedQuery("");
   };
 
   // Handle email selection
@@ -530,96 +575,156 @@ export default function Inbox() {
             </>
           )}
           <div className="flex items-center gap-4">
-            <div className="flex bg-gray-100 rounded-lg p-1 border border-gray-200 mr-2">
-              <button
-                className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${viewMode === 'list' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-900'}`}
-                onClick={() => setViewMode('list')}
-              >
-                List
-              </button>
-              <button
-                className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${viewMode === 'kanban' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-900'}`}
-                onClick={() => setViewMode('kanban')}
-              >
-                Kanban
-              </button>
-            </div>
-            <div className="relative hidden lg:block">
+            {!searchActive && (
+              <div className="flex bg-gray-100 rounded-lg p-1 border border-gray-200 mr-2">
+                <button
+                  className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${viewMode === 'list' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-900'}`}
+                  onClick={() => setViewMode('list')}
+                >
+                  List
+                </button>
+                <button
+                  className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${viewMode === 'kanban' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-900'}`}
+                  onClick={() => setViewMode('kanban')}
+                >
+                  Kanban
+                </button>
+              </div>
+            )}
+            <form onSubmit={handleSearchSubmit} className="relative flex-1 lg:flex-initial">
               <input
                 type="text"
                 placeholder="Search emails..."
-                className="w-64 px-4 py-2 pl-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full lg:w-64 px-4 py-2 pl-10 pr-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
               <span className="absolute left-3 top-2.5 text-gray-400">🔍</span>
-            </div>
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={handleClearSearch}
+                  className="absolute right-3 top-2.5 text-gray-400 hover:text-gray-600"
+                >
+                  ✕
+                </button>
+              )}
+            </form>
           </div>
         </div>
       </div>
       <div className="h-[calc(100vh-8rem)] flex overflow-hidden bg-gray-50">
-        {/* Column 1: Mailboxes/Folders */}
-        {(!isMobileView || mobileView === "folders") && viewMode !== 'kanban' && (
-          <MailboxSidebar
-            standardMailboxes={standardMailboxes}
-            customMailboxes={customMailboxes}
-            selectedMailboxId={selectedMailboxId}
-            onMailboxClick={handleMailboxClick}
-            onCompose={handleNewCompose}
-          />
-        )}
-
-        {/* Column 2: Email List */}
-        {/* Column 2: Email List OR Kanban */}
-        {(!isMobileView || mobileView === "list") && (
-          viewMode === 'kanban' ? (
-            <div className="flex-1 h-full overflow-hidden">
-              <KanbanBoard
-                emails={emails}
-                currentMailboxId={selectedMailboxId}
-                onEmailClick={(email) => {
-                  setSelectedEmailId(email.id);
-                  if (isMobileView) {
-                    setMobileView("detail");
-                  } else {
-                    // On desktop, user might want to see detail. 
-                    // Since Kanban replaces the list view, we can either switch back to List view
-                    // or maybe we can keep Detail view visible if we modify layout logic?
-                    // For now, let's switch to List view to show detail as requested "navigate to... detailed view from Week 1"
-                    setViewMode('list');
-                  }
-                }}
-              />
-            </div>
-          ) : (
-            <EmailListView
-              emails={emails}
-              selectedEmailId={selectedEmailId}
-              selectedEmails={selectedEmails}
-              selectedMailboxId={selectedMailboxId}
-              isLoading={emailsLoading}
-              isError={emailsError}
-              isFetching={emailsFetching}
-              isFromCache={emailsFromCache}
-              isStale={emailsStale}
-              isOnline={isOnline}
-              isSyncing={isSyncing}
-              lastSyncTime={lastSyncTime}
+        {/* Show Search Results when search is active */}
+        {searchActive ? (
+          <>
+            <SearchResults
+              query={debouncedQuery}
+              results={searchEmails}
+              totalResults={searchResults?.totalResults}
+              isLoading={searchLoading}
+              isError={searchError}
               onEmailClick={handleEmailClick}
-              onToggleSelection={toggleEmailSelection}
-              onSelectAll={selectAllEmails}
-              onToggleStar={(emailId, starred) =>
-                toggleStarMutation.mutate({ emailId, starred })
-              }
-              onSync={sync}
-              onMarkAsRead={() => markSelectedAsReadMutation.mutate()}
-              onDelete={() => deleteSelectedMutation.mutate()}
-              isMarkingAsRead={markSelectedAsReadMutation.isPending}
-              isDeleting={deleteSelectedMutation.isPending}
+              onClose={handleClearSearch}
             />
-          )
+            {/* Column 3: Email Detail for search results */}
+            {(!isMobileView || mobileView === "detail") && (
+              <EmailDetail
+                email={selectedEmail}
+                customMailboxes={customMailboxes}
+                showMoveMenu={showMoveMenu}
+                moveEmailId={moveEmailId}
+                onReply={handleReply}
+                onReplyAll={handleReplyAll}
+                onForward={handleForward}
+                onDelete={handleDeleteEmail}
+                onToggleStar={(emailId, starred) =>
+                  toggleStarMutation.mutate({ emailId, starred })
+                }
+                onToggleRead={(emailId, isRead) =>
+                  isRead
+                    ? markAsUnreadMutation.mutate(emailId)
+                    : markAsReadMutation.mutate(emailId)
+                }
+                onMoveToFolder={(emailId, labelId) =>
+                  moveToFolderMutation.mutate({ emailId, labelId })
+                }
+                onShowMoveMenu={(show, emailId) => {
+                  setShowMoveMenu(show);
+                  setMoveEmailId(emailId);
+                }}
+                isDeleting={deleteEmailMutation.isPending}
+                isMoving={moveToFolderMutation.isPending}
+              />
+            )}
+          </>
+        ) : (
+          <>
+            {/* Column 1: Mailboxes/Folders */}
+            {(!isMobileView || mobileView === "folders") && viewMode !== 'kanban' && (
+              <MailboxSidebar
+                standardMailboxes={standardMailboxes}
+                customMailboxes={customMailboxes}
+                selectedMailboxId={selectedMailboxId}
+                onMailboxClick={handleMailboxClick}
+                onCompose={handleNewCompose}
+              />
+            )}
+
+            {/* Column 2: Email List */}
+            {/* Column 2: Email List OR Kanban */}
+            {(!isMobileView || mobileView === "list") && (
+              viewMode === 'kanban' ? (
+                <div className="flex-1 h-full overflow-hidden">
+                  <KanbanBoard
+                    emails={emails}
+                    currentMailboxId={selectedMailboxId}
+                    onEmailClick={(email) => {
+                      setSelectedEmailId(email.id);
+                      if (isMobileView) {
+                        setMobileView("detail");
+                      } else {
+                        // On desktop, user might want to see detail. 
+                        // Since Kanban replaces the list view, we can either switch back to List view
+                        // or maybe we can keep Detail view visible if we modify layout logic?
+                        // For now, let's switch to List view to show detail as requested "navigate to... detailed view from Week 1"
+                        setViewMode('list');
+                      }
+                    }}
+                  />
+                </div>
+              ) : (
+                <EmailListView
+                  emails={emails}
+                  selectedEmailId={selectedEmailId}
+                  selectedEmails={selectedEmails}
+                  selectedMailboxId={selectedMailboxId}
+                  isLoading={emailsLoading}
+                  isError={emailsError}
+                  isFetching={emailsFetching}
+                  isFromCache={emailsFromCache}
+                  isStale={emailsStale}
+                  isOnline={isOnline}
+                  isSyncing={isSyncing}
+                  lastSyncTime={lastSyncTime}
+                  onEmailClick={handleEmailClick}
+                  onToggleSelection={toggleEmailSelection}
+                  onSelectAll={selectAllEmails}
+                  onToggleStar={(emailId, starred) =>
+                    toggleStarMutation.mutate({ emailId, starred })
+                  }
+                  onSync={sync}
+                  onMarkAsRead={() => markSelectedAsReadMutation.mutate()}
+                  onDelete={() => deleteSelectedMutation.mutate()}
+                  isMarkingAsRead={markSelectedAsReadMutation.isPending}
+                  isDeleting={deleteSelectedMutation.isPending}
+                />
+              )
+            )}
+          </>
         )}
 
-        {/* Column 3: Email Detail (Only show in List mode or if Mobile detail view) */}
-        {(!isMobileView || mobileView === "detail") && viewMode === 'list' && (
+        {/* Column 3: Email Detail (Only show in List mode or if Mobile detail view, and when not searching) */}
+        {!searchActive && (!isMobileView || mobileView === "detail") && viewMode === 'list' && (
           <EmailDetail
             email={selectedEmail}
             customMailboxes={customMailboxes}

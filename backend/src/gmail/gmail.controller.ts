@@ -234,4 +234,18 @@ export class GmailController {
         res.setHeader('Content-Length', buffer.length);
         res.send(buffer);
     }
+
+    /**
+     * Search emails with fuzzy matching
+     */
+    @Get('search')
+    @UseGuards(JwtAuthGuard)
+    async searchEmails(
+        @Request() req,
+        @Query('q') query: string,
+        @Query('limit') limit?: string,
+    ) {
+        const maxResults = limit ? parseInt(limit) : 50;
+        return this.gmailService.searchEmails(req.user.userId, query, maxResults);
+    }
 }

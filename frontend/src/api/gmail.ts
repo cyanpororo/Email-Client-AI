@@ -318,3 +318,20 @@ export function getGmailUrl(messageId: string, threadId?: string): string {
     const id = threadId || messageId;
     return `https://mail.google.com/mail/u/0/#inbox/${id}`;
 }
+
+/**
+ * Search emails with fuzzy matching
+ */
+export async function searchGmailEmails(
+    query: string,
+    limit: number = 50
+): Promise<{ emails: GmailEmail[]; query: string; totalResults?: number }> {
+    const params = new URLSearchParams();
+    params.append('q', query);
+    params.append('limit', limit.toString());
+
+    const response = await gmailApi.get(
+        `/api/gmail/search?${params.toString()}`
+    );
+    return response.data;
+}
