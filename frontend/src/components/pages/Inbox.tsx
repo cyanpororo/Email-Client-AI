@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 import * as gmailApi from "../../api/gmail";
 import { Button } from "../ui/button";
@@ -33,6 +33,11 @@ export default function Inbox() {
 
   const [isMobileView, setIsMobileView] = useState(false);
   const [mobileView, setMobileView] = useState<MobileView>("list");
+
+  // Kanban Filter/Sort State
+  const [kanbanSortOrder, setKanbanSortOrder] = useState<'newest' | 'oldest'>('newest');
+  const [filterUnread, setFilterUnread] = useState(false);
+  const [filterHasAttachment, setFilterHasAttachment] = useState(false);
 
   // Search state
   const [searchQuery, setSearchQuery] = useState("");
@@ -129,6 +134,27 @@ export default function Inbox() {
   const emails: Email[] = (gmailEmailsRaw || []).map(
     gmailApi.mapGmailEmailToEmail
   );
+
+  // Filter and Sort emails for Kanban
+  const processedEmails = useMemo(() => {
+    let result = [...emails];
+
+    if (viewMode === 'kanban') {
+      if (filterUnread) {
+        result = result.filter(e => !e.isRead);
+      }
+      if (filterHasAttachment) {
+        result = result.filter(e => e.hasAttachments);
+      }
+
+      result.sort((a, b) => {
+        const dateA = new Date(a.timestamp || 0).getTime();
+        const dateB = new Date(b.timestamp || 0).getTime();
+        return kanbanSortOrder === 'newest' ? dateB - dateA : dateA - dateB;
+      });
+    }
+    return result;
+  }, [emails, viewMode, filterUnread, filterHasAttachment, kanbanSortOrder]);
 
   // Fetch selected email details using offline-first hook
   const { email: selectedGmailEmail } = useGmailEmailDetail(
@@ -591,6 +617,46 @@ export default function Inbox() {
                 </button>
               </div>
             )}
+            {viewMode === 'kanban' && !searchActive && (
+              <div className="hidden md:flex items-center gap-2 mr-2 border-l border-gray-300 pl-4 transition-all duration-300 ease-in-out">
+                {/* Sort Dropdown */}
+                <div className="flex items-center gap-1 bg-gray-100 rounded-lg px-2 py-1 border border-gray-200 hover:border-blue-300 transition-colors">
+                  <span className="text-xs text-gray-500 font-medium whitespace-nowrap">Sort:</span>
+                  <select
+                    value={kanbanSortOrder}
+                    onChange={(e) => setKanbanSortOrder(e.target.value as 'newest' | 'oldest')}
+                    className="bg-transparent text-sm font-medium text-gray-700 focus:outline-none cursor-pointer pr-1"
+                  >
+                    <option value="newest">Newest First</option>
+                    <option value="oldest">Oldest First</option>
+                  </select>
+                </div>
+
+                {/* Filter Buttons */}
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setFilterUnread(!filterUnread)}
+                    className={`px-3 py-1 rounded-lg text-sm font-medium transition-all duration-200 border flex items-center gap-1.5 ${filterUnread
+                      ? 'bg-blue-100 text-blue-700 border-blue-200 shadow-sm'
+                      : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50 hover:border-gray-300'
+                      }`}
+                  >
+                    <span className={`w-2 h-2 rounded-full ${filterUnread ? 'bg-blue-500' : 'bg-gray-300'}`}></span>
+                    Unread
+                  </button>
+                  <button
+                    onClick={() => setFilterHasAttachment(!filterHasAttachment)}
+                    className={`px-3 py-1 rounded-lg text-sm font-medium transition-all duration-200 border flex items-center gap-1.5 ${filterHasAttachment
+                      ? 'bg-blue-100 text-blue-700 border-blue-200 shadow-sm'
+                      : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50 hover:border-gray-300'
+                      }`}
+                  >
+                    <span>📎</span>
+                    Attachments
+                  </button>
+                </div>
+              </div>
+            )}
             <form onSubmit={handleSearchSubmit} className="relative flex-1 lg:flex-initial">
               <input
                 type="text"
@@ -676,7 +742,7 @@ export default function Inbox() {
               viewMode === 'kanban' ? (
                 <div className="flex-1 h-full overflow-hidden">
                   <KanbanBoard
-                    emails={emails}
+                    emails={processedEmails}
                     currentMailboxId={selectedMailboxId}
                     onEmailClick={(email) => {
                       setSelectedEmailId(email.id);
