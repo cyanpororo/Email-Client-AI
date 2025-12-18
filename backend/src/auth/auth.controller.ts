@@ -81,15 +81,25 @@ export class AuthController {
   @Post('logout')
   @HttpCode(HttpStatus.OK)
   async logout(@Res({ passthrough: true }) res: Response) {
-    res.clearCookie('refreshToken');
+    const isProduction = process.env.NODE_ENV === 'production';
+
+    res.clearCookie('refreshToken', {
+      httpOnly: true,
+      secure: true,
+      sameSite: isProduction ? 'none' : 'lax', // Must match setting options to clear correctly
+      path: '/',
+    });
+
     return { message: 'Logged out successfully' };
   }
 
   private setRefreshTokenCookie(res: Response, token: string) {
+    const isProduction = process.env.NODE_ENV === 'production';
+
     res.cookie('refreshToken', token, {
       httpOnly: true,
-      secure: true, // Always true since we are using https or localhost
-      sameSite: 'strict',
+      secure: true, // Always true (works on localhost + HTTPS)
+      sameSite: isProduction ? 'none' : 'lax', // 'none' for cross-site prod, 'lax' for local
       path: '/',
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
     });
