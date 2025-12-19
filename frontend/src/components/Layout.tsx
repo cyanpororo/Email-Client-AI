@@ -25,7 +25,7 @@ export function Layout({ children }: Props) {
           {/* Scrollable nav in the middle */}
           <nav className="px-4 py-6 overflow-y-auto flex-1 space-y-1">
             <Link
-              to="/inbox"
+              to="/inbox/kanban"
               className="block px-3 py-2 rounded-md text-gray-700 hover:bg-gray-100"
             >
               Inbox
@@ -118,7 +118,7 @@ export function Layout({ children }: Props) {
               {isAuthenticated && (
                 <>
                   <Link
-                    to="/inbox"
+                    to="/inbox/kanban"
                     className="text-gray-600 hover:text-gray-900 transition-colors"
                   >
                     Inbox

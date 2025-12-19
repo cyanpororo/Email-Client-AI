@@ -155,47 +155,63 @@ export class SemanticSearchService {
                 emailsToEmbed.includes(email.id),
             );
 
-            // Prepare all email contents
-            const contents = filteredEmails.map((email) =>
-                this.embeddingService.prepareEmailForEmbedding({
-                    subject: email.subject,
-                    body: email.body,
-                    snippet: email.snippet,
-                    from: email.from,
-                }),
-            );
+            // Process in batches to avoid token limits
+            const BATCH_SIZE = 5;
 
-            // Generate embeddings in batch
-            const embeddingResults = await this.embeddingService.generateEmbeddings(
-                contents,
-            );
+            for (let i = 0; i < filteredEmails.length; i += BATCH_SIZE) {
+                const batchEmails = filteredEmails.slice(i, i + BATCH_SIZE);
 
-            // Prepare records for insertion
-            const records = filteredEmails.map((email, index) => ({
-                user_id: userId,
-                gmail_message_id: email.id,
-                subject: email.subject,
-                body_snippet: email.snippet || email.body?.substring(0, 500) || '',
-                sender_email: email.from.email,
-                sender_name: email.from.name || '',
-                embedding: JSON.stringify(embeddingResults[index].embedding),
-                updated_at: new Date().toISOString(),
-            }));
+                console.log(
+                    `[SemanticSearch] Processing batch ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(filteredEmails.length / BATCH_SIZE)} (${batchEmails.length} emails)`,
+                );
 
-            // Store in database
-            const supabase = this.supabaseService.getClient();
+                try {
+                    // Prepare all email contents for this batch
+                    const contents = batchEmails.map((email) =>
+                        this.embeddingService.prepareEmailForEmbedding({
+                            subject: email.subject,
+                            body: email.body,
+                            snippet: email.snippet,
+                            from: email.from,
+                        }),
+                    );
 
-            const { error } = await supabase.from('email_embeddings').upsert(records, {
-                onConflict: 'user_id,gmail_message_id',
-            });
+                    // Generate embeddings for batch
+                    const embeddingResults = await this.embeddingService.generateEmbeddings(
+                        contents,
+                    );
 
-            if (error) {
-                console.error('[SemanticSearch] Error storing batch embeddings:', error);
-                throw new Error('Failed to store batch embeddings');
+                    // Prepare records for insertion
+                    const records = batchEmails.map((email, index) => ({
+                        user_id: userId,
+                        gmail_message_id: email.id,
+                        subject: email.subject,
+                        body_snippet: email.snippet || email.body?.substring(0, 500) || '',
+                        sender_email: email.from.email,
+                        sender_name: email.from.name || '',
+                        embedding: JSON.stringify(embeddingResults[index].embedding),
+                        updated_at: new Date().toISOString(),
+                    }));
+
+                    // Store in database
+                    const supabase = this.supabaseService.getClient();
+
+                    const { error } = await supabase.from('email_embeddings').upsert(records, {
+                        onConflict: 'user_id,gmail_message_id',
+                    });
+
+                    if (error) {
+                        console.error('[SemanticSearch] Error storing batch embeddings:', error);
+                        // Continue with next batch
+                    }
+                } catch (batchError) {
+                    console.error('[SemanticSearch] Error processing batch:', batchError);
+                    // Continue with next batch
+                }
             }
 
             console.log(
-                `[SemanticSearch] Successfully stored ${filteredEmails.length} embeddings`,
+                `[SemanticSearch] Finished processing ${filteredEmails.length} embeddings`,
             );
         } catch (error) {
             console.error('[SemanticSearch] Error in storeEmbeddingsBatch:', error);
@@ -264,7 +280,7 @@ export class SemanticSearchService {
             const supabase = this.supabaseService.getClient();
 
             const { data, error } = await supabase.rpc('search_emails_semantic', {
-                query_embedding: JSON.stringify(queryEmbedding),
+                query_embedding: queryEmbedding,
                 query_user_id: userId,
                 match_threshold: matchThreshold,
                 match_count: matchCount,

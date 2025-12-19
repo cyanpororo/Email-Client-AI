@@ -44,6 +44,7 @@ export type GmailEmail = {
         size: number;
         type: string;
     }>;
+    similarity?: number;
 };
 
 export type GmailEmailsResponse = {
@@ -291,6 +292,7 @@ export function mapGmailEmailToEmail(gmailEmail: GmailEmail): {
     isStarred: boolean;
     hasAttachments: boolean;
     attachments?: Array<{ id: string; name: string; size: number; type: string }>;
+    similarity?: number;
 } {
     return {
         id: gmailEmail.id,
@@ -307,6 +309,7 @@ export function mapGmailEmailToEmail(gmailEmail: GmailEmail): {
         isStarred: gmailEmail.isStarred,
         hasAttachments: gmailEmail.hasAttachments,
         attachments: gmailEmail.attachments,
+        similarity: gmailEmail.similarity,
     };
 }
 

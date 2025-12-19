@@ -154,7 +154,11 @@ export function AuthProvider({ children }: PropsWithChildren) {
       // Schedule proactive refresh using the freshly issued access token
       scheduleProactiveRefresh(data.accessToken);
       queryClient.invalidateQueries({ queryKey: ["profile"] });
-      navigate("/inbox");
+      if (data.user.role === 'admin') {
+        navigate("/admin");
+      } else {
+        navigate("/inbox/list");
+      }
     },
     onError: (err: any) => {
       const message =
@@ -170,7 +174,11 @@ export function AuthProvider({ children }: PropsWithChildren) {
       setError(null);
       scheduleProactiveRefresh(data.accessToken);
       queryClient.invalidateQueries({ queryKey: ["profile"] });
-      navigate("/inbox");
+      if (data.user.role === 'admin') {
+        navigate("/admin");
+      } else {
+        navigate("/inbox/list");
+      }
     },
     onError: (err: any) => {
       const message =

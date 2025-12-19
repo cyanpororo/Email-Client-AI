@@ -264,7 +264,7 @@ export class GmailController {
         @Query('threshold') threshold?: string,
         @Query('limit') limit?: string,
     ) {
-        const matchThreshold = threshold ? parseFloat(threshold) : 0.5;
+        const matchThreshold = threshold ? parseFloat(threshold) : 0.7;
         const matchCount = limit ? parseInt(limit) : 50;
 
         try {
@@ -279,10 +279,19 @@ export class GmailController {
             const emailPromises = results.map(result =>
                 this.gmailService.getEmailById(req.user.userId, result.gmail_message_id)
             );
-            const emails = await Promise.all(emailPromises);
+            const fetchedEmails = await Promise.all(emailPromises);
+
+            // Map similarity scores to emails
+            const emailsWithScores = results
+                .map((result, index) => {
+                    const email = fetchedEmails[index];
+                    if (!email) return null;
+                    return { ...email, similarity: result.similarity };
+                })
+                .filter(item => item !== null);
 
             return {
-                emails: emails.filter(e => e !== null),
+                emails: emailsWithScores,
                 query,
                 totalResults: results.length,
                 searchType: 'semantic',

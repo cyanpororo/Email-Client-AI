@@ -17,7 +17,7 @@ export function PublicOnlyRoute({ children }: Props) {
   }
 
   if (isAuthenticated) {
-    return <Navigate to="/inbox" replace />;
+    return <Navigate to="/inbox/list" replace />;
   }
 
   return <>{children}</>;

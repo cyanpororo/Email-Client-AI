@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
 import * as gmailApi from "../api/gmail";
 import type { Email } from "../components/pages/inbox/types";
 
@@ -9,29 +8,15 @@ export function useInboxSearch(setViewMode: (mode: 'list' | 'kanban') => void) {
     const [searchQuery, setSearchQuery] = useState("");
     const [searchType, setSearchType] = useState<SearchType>('fuzzy');
     const [searchActive, setSearchActive] = useState(false);
-    const [submittedQuery, setSubmittedQuery] = useState("");
-    const [submittedSearchType, setSubmittedSearchType] = useState<SearchType>('fuzzy');
-    const [searchTimestamp, setSearchTimestamp] = useState<number>(0);
 
-    // Perform search when query is submitted
-    // Include timestamp in query key to force refetch on each search
-    const {
-        data: searchResults,
-        isLoading: searchLoading,
-        isError: searchError,
-    } = useQuery({
-        queryKey: ["gmailSearch", submittedQuery, submittedSearchType, searchTimestamp],
-        queryFn: () => {
-            if (submittedSearchType === 'semantic') {
-                return gmailApi.searchGmailEmailsSemantic(submittedQuery);
-            } else {
-                return gmailApi.searchGmailEmails(submittedQuery);
-            }
-        },
-        enabled: searchActive && submittedQuery.trim().length > 0,
-        // Make results stale immediately so refetch works
-        staleTime: 0,
-    });
+    // Search state
+    const [searchLoading, setSearchLoading] = useState(false);
+    const [searchError, setSearchError] = useState(false);
+    const [searchResults, setSearchResults] = useState<{
+        emails: gmailApi.GmailEmail[];
+        query: string;
+        totalResults?: number;
+    } | null>(null);
 
     // Map search results to Email format
     const searchEmails: Email[] = searchResults
@@ -39,32 +24,40 @@ export function useInboxSearch(setViewMode: (mode: 'list' | 'kanban') => void) {
         : [];
 
     // Handle search submission
-    const handleSearchSubmit = (e?: React.FormEvent) => {
+    const handleSearchSubmit = async (e?: React.FormEvent) => {
         if (e) {
             e.preventDefault();
         }
-        if (searchQuery.trim().length > 0) {
-            const isSameSearch = submittedQuery === searchQuery && submittedSearchType === searchType;
 
-            setSubmittedQuery(searchQuery);
-            setSubmittedSearchType(searchType);
-            setSearchActive(true);
-            setViewMode('list'); // Switch to list view for search results
+        if (searchQuery.trim().length === 0) return;
 
-            // If it's the same search, update timestamp to force a new API call
-            if (isSameSearch) {
-                setSearchTimestamp(Date.now());
+        setSearchLoading(true);
+        setSearchError(false);
+        setSearchActive(true);
+        setViewMode('list'); // Switch to list view for search results
+
+        try {
+            let results;
+            if (searchType === 'semantic') {
+                results = await gmailApi.searchGmailEmailsSemantic(searchQuery);
             } else {
-                setSearchTimestamp(Date.now());
+                results = await gmailApi.searchGmailEmails(searchQuery);
             }
+            setSearchResults(results);
+        } catch (error) {
+            console.error("Search failed:", error);
+            setSearchError(true);
+            setSearchResults(null);
+        } finally {
+            setSearchLoading(false);
         }
     };
 
     const handleClearSearch = () => {
         setSearchQuery("");
         setSearchActive(false);
-        setSubmittedQuery("");
-        setSearchTimestamp(0);
+        setSearchResults(null);
+        setSearchError(false);
     };
 
     return {

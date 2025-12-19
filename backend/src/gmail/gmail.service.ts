@@ -8,13 +8,15 @@ import { google } from 'googleapis';
 import { SupabaseService } from '../supabase/supabase.service';
 import { SendEmailDto, ModifyEmailDto } from './dto/gmail.dto';
 import Fuse from 'fuse.js';
+import { SemanticSearchService } from './semantic-search.service';
 
 @Injectable()
 export class GmailService {
   constructor(
     private readonly configService: ConfigService,
     private readonly supabaseService: SupabaseService,
-  ) {}
+    private readonly semanticSearchService: SemanticSearchService,
+  ) { }
 
   /**
    * Create OAuth2 client instance
@@ -215,12 +217,26 @@ export class GmailService {
 
       // Fetch full details for each message (in parallel)
       const emailPromises = messages.map((msg) =>
-        this.getEmailById(userId, msg.id!),
+        this.getEmailById(userId, msg.id!, false),
       );
       const emails = await Promise.all(emailPromises);
+      const validEmails = emails.filter((e) => e !== null);
+
+      // Trigger background embedding generation
+      // We don't await this to keep the API response fast
+      this.semanticSearchService.storeEmbeddingsBatch(
+        userId,
+        validEmails.map((e) => ({
+          id: e.id!,
+          subject: e.subject,
+          snippet: e.snippet || undefined,
+          body: e.body,
+          from: e.from,
+        })),
+      ).catch(err => console.error('Background embedding generation failed:', err));
 
       return {
-        emails: emails.filter((e) => e !== null),
+        emails: validEmails,
         nextPageToken,
       };
     } catch (error) {
@@ -232,7 +248,7 @@ export class GmailService {
   /**
    * Get a single email by ID
    */
-  async getEmailById(userId: string, emailId: string) {
+  async getEmailById(userId: string, emailId: string, generateEmbedding: boolean = true) {
     try {
       const auth = await this.getAuthenticatedClient(userId);
       const gmail = google.gmail({ version: 'v1', auth });
@@ -262,7 +278,7 @@ export class GmailService {
       // Check for attachments
       const attachments = this.extractAttachments(message.payload);
 
-      return {
+      const emailData = {
         id: message.id,
         threadId: message.threadId,
         labelIds: message.labelIds || [],
@@ -280,11 +296,29 @@ export class GmailService {
         hasAttachments: attachments.length > 0,
         attachments: attachments.length > 0 ? attachments : undefined,
       };
+
+      if (generateEmbedding && emailData.id) {
+        // Trigger background embedding generation
+        this.semanticSearchService.storeEmbedding(
+          userId,
+          emailData.id,
+          {
+            subject: emailData.subject,
+            snippet: emailData.snippet || undefined,
+            body: emailData.body,
+            from: emailData.from,
+          }
+        ).catch(err => console.error('Background embedding generation failed:', err));
+      }
+
+      return emailData;
     } catch (error) {
       console.error('Get email by ID error:', error);
       return null;
     }
   }
+
+
 
   /**
    * Send an email

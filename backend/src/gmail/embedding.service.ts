@@ -120,7 +120,7 @@ export class EmbeddingService {
         if (content) {
             // Truncate very long content to avoid token limits (Mistral has ~8k token limit)
             const truncatedContent =
-                content.length > 10000 ? content.substring(0, 10000) + '...' : content;
+                content.length > 8000 ? content.substring(0, 8000) + '...' : content;
             parts.push(`Content: ${truncatedContent}`);
         }
 

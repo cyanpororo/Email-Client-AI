@@ -1,5 +1,6 @@
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
+import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import cookieParser from 'cookie-parser';
 import { AppModule } from './app.module';
 
@@ -25,6 +26,16 @@ async function bootstrap() {
       transform: true,
     }),
   );
+
+  // Swagger Configuration
+  const config = new DocumentBuilder()
+    .setTitle('Email Client AI API')
+    .setDescription('The Email Client AI API description')
+    .setVersion('1.0')
+    .addTag('email')
+    .build();
+  const document = SwaggerModule.createDocument(app, config);
+  SwaggerModule.setup('api', app, document);
 
   const port = process.env.PORT || 3000;
   await app.listen(port);
