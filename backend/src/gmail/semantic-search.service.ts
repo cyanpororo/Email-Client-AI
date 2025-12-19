@@ -375,4 +375,92 @@ export class SemanticSearchService {
             return 0;
         }
     }
+
+    /**
+     * Get search suggestions based on user's email data
+     * Returns unique senders and common keywords
+     */
+    async getSearchSuggestions(
+        userId: string,
+        query: string = '',
+    ): Promise<string[]> {
+        try {
+            const supabase = this.supabaseService.getClient();
+            const suggestions: string[] = [];
+
+            // Get unique senders (up to 10)
+            const { data: senders, error: sendersError } = await supabase
+                .from('email_embeddings')
+                .select('sender_name, sender_email')
+                .eq('user_id', userId)
+                .not('sender_name', 'is', null)
+                .order('created_at', { ascending: false })
+                .limit(100);
+
+            if (!sendersError && senders) {
+                // Create unique sender suggestions
+                const uniqueSenders = new Map<string, string>();
+
+                senders.forEach((sender) => {
+                    const name = sender.sender_name?.trim();
+                    const email = sender.sender_email?.trim();
+
+                    if (name && !uniqueSenders.has(name.toLowerCase())) {
+                        uniqueSenders.set(name.toLowerCase(), name);
+                    }
+                    if (email && !uniqueSenders.has(email.toLowerCase())) {
+                        uniqueSenders.set(email.toLowerCase(), email);
+                    }
+                });
+
+                // Filter by query if provided
+                const filteredSenders = Array.from(uniqueSenders.values()).filter((sender) =>
+                    query ? sender.toLowerCase().includes(query.toLowerCase()) : true,
+                );
+
+                suggestions.push(...filteredSenders.slice(0, 5));
+            }
+
+            // Get common subject keywords (if query is empty or matches)
+            if (suggestions.length < 5) {
+                const { data: subjects, error: subjectsError } = await supabase
+                    .from('email_embeddings')
+                    .select('subject')
+                    .eq('user_id', userId)
+                    .not('subject', 'is', null)
+                    .order('created_at', { ascending: false })
+                    .limit(50);
+
+                if (!subjectsError && subjects) {
+                    const keywords = new Set<string>();
+
+                    subjects.forEach((s) => {
+                        const subject = s.subject?.trim();
+                        if (subject) {
+                            // Extract meaningful words (3+ characters)
+                            const words = subject
+                                .split(/\s+/)
+                                .filter((word) => word.length >= 3)
+                                .map((word) => word.replace(/[^\w\s]/gi, ''))
+                                .filter((word) => word.length >= 3);
+
+                            words.forEach((word) => {
+                                if (query ? word.toLowerCase().includes(query.toLowerCase()) : true) {
+                                    keywords.add(word);
+                                }
+                            });
+                        }
+                    });
+
+                    const remainingSlots = 5 - suggestions.length;
+                    suggestions.push(...Array.from(keywords).slice(0, remainingSlots));
+                }
+            }
+
+            return suggestions.slice(0, 5); // Return at most 5 suggestions
+        } catch (error) {
+            console.error('[SemanticSearch] Error in getSearchSuggestions:', error);
+            return [];
+        }
+    }
 }

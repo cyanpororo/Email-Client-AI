@@ -357,3 +357,18 @@ export async function searchGmailEmailsSemantic(
     );
     return response.data;
 }
+
+/**
+ * Get search suggestions for autocomplete
+ */
+export async function getSearchSuggestions(query: string = ''): Promise<string[]> {
+    const params = new URLSearchParams();
+    if (query) {
+        params.append('q', query);
+    }
+
+    const response = await gmailApi.get(
+        `/api/gmail/search/suggestions?${params.toString()}`
+    );
+    return response.data.suggestions || [];
+}

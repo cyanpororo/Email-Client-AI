@@ -380,5 +380,35 @@ export class GmailController {
             userId: req.user.userId,
         };
     }
+
+    /**
+     * Get search suggestions (senders, keywords)
+     * Returns unique senders and common subject keywords for autocomplete
+     */
+    @Get('search/suggestions')
+    @UseGuards(JwtAuthGuard)
+    async getSearchSuggestions(
+        @Request() req,
+        @Query('q') query?: string,
+    ) {
+        try {
+            // Get unique senders from user's email embeddings
+            const suggestions = await this.semanticSearchService.getSearchSuggestions(
+                req.user.userId,
+                query || '',
+            );
+
+            return {
+                suggestions,
+                query: query || '',
+            };
+        } catch (error) {
+            console.error('Error fetching search suggestions:', error);
+            return {
+                suggestions: [],
+                query: query || '',
+            };
+        }
+    }
 }
 

@@ -1,6 +1,8 @@
 import { Button } from "../../ui/button";
 import type { Email, MobileView } from "./types";
 import type { SearchType } from "../../../hooks/useInboxSearch";
+import { useSearchSuggestions } from "../../../hooks/useSearchSuggestions";
+import { SearchSuggestions } from "./SearchSuggestions";
 
 interface InboxHeaderProps {
     isMobileView: boolean;
@@ -45,6 +47,9 @@ export function InboxHeader({
     handleClearSearch,
     searchActive
 }: InboxHeaderProps) {
+    // Initialize search suggestions hook
+    const suggestionHook = useSearchSuggestions(searchQuery);
+
     return (
         <div className="bg-white border-b border-gray-200 px-3 md:px-6 py-3 md:py-4">
             <div className="flex items-center justify-between">
@@ -151,7 +156,19 @@ export function InboxHeader({
 
                     {/* Search Controls - Only show on List view */}
                     {viewMode === 'list' && (
-                        <form onSubmit={handleSearchSubmit} className="flex items-center gap-2">
+                        <form onSubmit={(e) => {
+                            e.preventDefault();
+                            // Check if a suggestion is selected
+                            const selectedSuggestion = suggestionHook.getSelectedSuggestion();
+                            if (selectedSuggestion) {
+                                setSearchQuery(selectedSuggestion);
+                                suggestionHook.hideSuggestions();
+                                // Wait a bit for state to update then submit
+                                setTimeout(() => handleSearchSubmit(), 0);
+                            } else {
+                                handleSearchSubmit();
+                            }
+                        }} className="flex items-center gap-2">
                             {/* Search Type Dropdown */}
                             <div className="flex items-center gap-1 bg-gray-100 rounded-lg px-2 py-2 border border-gray-200">
                                 <select
@@ -164,16 +181,46 @@ export function InboxHeader({
                                 </select>
                             </div>
 
-                            {/* Search Input */}
+                            {/* Search Input with Auto-Suggestions */}
                             <div className="relative">
                                 <input
                                     type="text"
                                     placeholder="Search emails..."
                                     value={searchQuery}
-                                    onChange={(e) => setSearchQuery(e.target.value)}
+                                    onChange={(e) => {
+                                        setSearchQuery(e.target.value);
+                                    }}
+                                    onKeyDown={(e) => {
+                                        suggestionHook.handleKeyDown(e);
+                                    }}
+                                    onBlur={() => {
+                                        // Delay hiding to allow click on suggestion
+                                        setTimeout(() => suggestionHook.hideSuggestions(), 200);
+                                    }}
+                                    onFocus={() => {
+                                        // Show suggestions if we have some
+                                        if (suggestionHook.suggestions.length > 0 && searchQuery.trim().length >= 2) {
+                                            // This will be handled by the hook
+                                        }
+                                    }}
                                     className="w-full lg:w-64 px-4 py-2 pl-10 pr-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                                 />
                                 <span className="absolute left-3 top-2.5 text-gray-400">🔍</span>
+
+                                {/* Suggestions Dropdown */}
+                                {suggestionHook.showSuggestions && (
+                                    <SearchSuggestions
+                                        suggestions={suggestionHook.suggestions}
+                                        selectedIndex={suggestionHook.selectedIndex}
+                                        isLoading={suggestionHook.isLoading}
+                                        onSelect={(suggestion) => {
+                                            setSearchQuery(suggestion);
+                                            suggestionHook.hideSuggestions();
+                                            // Trigger search after selecting suggestion
+                                            setTimeout(() => handleSearchSubmit(), 0);
+                                        }}
+                                    />
+                                )}
                             </div>
 
                             {/* Search/Clear Buttons */}
