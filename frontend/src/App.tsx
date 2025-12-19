@@ -46,6 +46,22 @@ function App() {
             path="/inbox"
             element={
               <ProtectedRoute>
+                <Navigate to="/inbox/kanban" replace />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/inbox/list"
+            element={
+              <ProtectedRoute>
+                <Inbox />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/inbox/kanban"
+            element={
+              <ProtectedRoute>
                 <Inbox />
               </ProtectedRoute>
             }

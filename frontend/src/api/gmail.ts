@@ -335,3 +335,22 @@ export async function searchGmailEmails(
     );
     return response.data;
 }
+
+/**
+ * Search emails with semantic/vector search
+ */
+export async function searchGmailEmailsSemantic(
+    query: string,
+    limit: number = 50,
+    threshold: number = 0.5
+): Promise<{ emails: GmailEmail[]; query: string; totalResults?: number; searchType?: string }> {
+    const params = new URLSearchParams();
+    params.append('q', query);
+    params.append('limit', limit.toString());
+    params.append('threshold', threshold.toString());
+
+    const response = await gmailApi.get(
+        `/api/gmail/search/semantic?${params.toString()}`
+    );
+    return response.data;
+}

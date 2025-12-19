@@ -171,6 +171,8 @@ export default function Inbox() {
         setFilterHasAttachment={nav.setFilterHasAttachment}
         searchQuery={search.searchQuery}
         setSearchQuery={search.setSearchQuery}
+        searchType={search.searchType}
+        setSearchType={search.setSearchType}
         handleSearchSubmit={search.handleSearchSubmit}
         handleClearSearch={search.handleClearSearch}
         searchActive={search.searchActive}
@@ -181,7 +183,7 @@ export default function Inbox() {
         {search.searchActive ? (
           <>
             <SearchResults
-              query={search.debouncedQuery}
+              query={search.searchQuery}
               results={search.searchEmails}
               totalResults={search.searchResults?.totalResults}
               isLoading={search.searchLoading}

@@ -1,9 +1,16 @@
 import { useState, useEffect, useCallback } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import type { MobileView } from "../components/pages/inbox/types";
 
 export function useInboxNavigation() {
+    const location = useLocation();
+    const navigate = useNavigate();
+
     const [selectedMailboxId, setSelectedMailboxId] = useState("INBOX");
-    const [viewMode, setViewMode] = useState<'list' | 'kanban'>('list');
+
+    // Determine view mode from route
+    const viewMode: 'list' | 'kanban' = location.pathname.includes('/inbox/kanban') ? 'kanban' : 'list';
+
     const [isMobileView, setIsMobileView] = useState(false);
     const [mobileView, setMobileView] = useState<MobileView>("list");
 
@@ -31,6 +38,11 @@ export function useInboxNavigation() {
         },
         [isMobileView]
     );
+
+    // Function to change view mode by navigating to the appropriate route
+    const setViewMode = useCallback((mode: 'list' | 'kanban') => {
+        navigate(`/inbox/${mode}`);
+    }, [navigate]);
 
     return {
         selectedMailboxId,

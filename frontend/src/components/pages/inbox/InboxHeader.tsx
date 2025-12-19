@@ -1,5 +1,6 @@
 import { Button } from "../../ui/button";
 import type { Email, MobileView } from "./types";
+import type { SearchType } from "../../../hooks/useInboxSearch";
 
 interface InboxHeaderProps {
     isMobileView: boolean;
@@ -16,7 +17,9 @@ interface InboxHeaderProps {
     setFilterHasAttachment: (filter: boolean) => void;
     searchQuery: string;
     setSearchQuery: (query: string) => void;
-    handleSearchSubmit: (e: React.FormEvent) => void;
+    searchType: SearchType;
+    setSearchType: (type: SearchType) => void;
+    handleSearchSubmit: (e?: React.FormEvent) => void;
     handleClearSearch: () => void;
     searchActive: boolean;
 }
@@ -36,6 +39,8 @@ export function InboxHeader({
     setFilterHasAttachment,
     searchQuery,
     setSearchQuery,
+    searchType,
+    setSearchType,
     handleSearchSubmit,
     handleClearSearch,
     searchActive
@@ -101,6 +106,8 @@ export function InboxHeader({
                             </button>
                         </div>
                     )}
+
+                    {/* Kanban Filters - Only show on Kanban view */}
                     {viewMode === 'kanban' && !searchActive && (
                         <div className="hidden md:flex items-center gap-2 mr-2 border-l border-gray-300 pl-4 transition-all duration-300 ease-in-out">
                             {/* Sort Dropdown */}
@@ -141,25 +148,63 @@ export function InboxHeader({
                             </div>
                         </div>
                     )}
-                    <form onSubmit={handleSearchSubmit} className="relative flex-1 lg:flex-initial">
-                        <input
-                            type="text"
-                            placeholder="Search emails..."
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                            className="w-full lg:w-64 px-4 py-2 pl-10 pr-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                        />
-                        <span className="absolute left-3 top-2.5 text-gray-400">🔍</span>
-                        {searchQuery && (
-                            <button
-                                type="button"
-                                onClick={handleClearSearch}
-                                className="absolute right-3 top-2.5 text-gray-400 hover:text-gray-600"
-                            >
-                                ✕
-                            </button>
-                        )}
-                    </form>
+
+                    {/* Search Controls - Only show on List view */}
+                    {viewMode === 'list' && (
+                        <form onSubmit={handleSearchSubmit} className="flex items-center gap-2">
+                            {/* Search Type Dropdown */}
+                            <div className="flex items-center gap-1 bg-gray-100 rounded-lg px-2 py-2 border border-gray-200">
+                                <select
+                                    value={searchType}
+                                    onChange={(e) => setSearchType(e.target.value as SearchType)}
+                                    className="bg-transparent text-sm font-medium text-gray-700 focus:outline-none cursor-pointer"
+                                >
+                                    <option value="fuzzy">🔍 Fuzzy</option>
+                                    <option value="semantic">🧠 Semantic</option>
+                                </select>
+                            </div>
+
+                            {/* Search Input */}
+                            <div className="relative">
+                                <input
+                                    type="text"
+                                    placeholder="Search emails..."
+                                    value={searchQuery}
+                                    onChange={(e) => setSearchQuery(e.target.value)}
+                                    className="w-full lg:w-64 px-4 py-2 pl-10 pr-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                />
+                                <span className="absolute left-3 top-2.5 text-gray-400">🔍</span>
+                            </div>
+
+                            {/* Search/Clear Buttons */}
+                            {searchQuery ? (
+                                <div className="flex gap-2">
+                                    <Button
+                                        type="submit"
+                                        className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2"
+                                    >
+                                        Search
+                                    </Button>
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        onClick={handleClearSearch}
+                                        className="px-4 py-2"
+                                    >
+                                        Clear
+                                    </Button>
+                                </div>
+                            ) : (
+                                <Button
+                                    type="submit"
+                                    className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2"
+                                    disabled
+                                >
+                                    Search
+                                </Button>
+                            )}
+                        </form>
+                    )}
                 </div>
             </div>
         </div>
