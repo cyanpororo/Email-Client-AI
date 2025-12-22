@@ -21,12 +21,15 @@
   },
   "dependencies": {
     "@google-cloud/local-auth": "^3.0.1",
+    "@google/generative-ai": "^0.24.1",
+    "@mistralai/mistralai": "^1.11.0",
     "@nestjs/common": "^11.0.1",
     "@nestjs/config": "^4.0.2",
     "@nestjs/core": "^11.0.1",
     "@nestjs/jwt": "^11.0.1",
     "@nestjs/passport": "^11.0.5",
     "@nestjs/platform-express": "^11.0.1",
+    "@nestjs/swagger": "^11.2.3",
     "@supabase/supabase-js": "^2.76.1",
     "bcrypt": "^6.0.0",
     "class-transformer": "^0.5.1",
@@ -38,7 +41,8 @@
     "passport": "^0.7.0",
     "passport-jwt": "^4.0.1",
     "reflect-metadata": "^0.2.2",
-    "rxjs": "^7.8.1"
+    "rxjs": "^7.8.1",
+    "swagger-ui-express": "^5.0.1"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.2.0",

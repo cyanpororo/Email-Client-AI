@@ -14,6 +14,7 @@ export type Email = {
     isStarred: boolean;
     hasAttachments: boolean;
     attachments?: Array<{ id: string; name: string; size: number; type: string }>;
+    similarity?: number;
 };
 
 export type ComposeMode = "new" | "reply" | "forward";

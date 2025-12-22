@@ -14,10 +14,14 @@ import type { Response } from 'express';
 import { GmailService } from './gmail.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { GmailAuthDto, SendEmailDto, ModifyEmailDto } from './dto/gmail.dto';
+import { SemanticSearchService } from './semantic-search.service';
 
 @Controller('api/gmail')
 export class GmailController {
-    constructor(private readonly gmailService: GmailService) { }
+    constructor(
+        private readonly gmailService: GmailService,
+        private readonly semanticSearchService: SemanticSearchService,
+    ) { }
 
     /**
      * Initiate Gmail OAuth flow
@@ -248,4 +252,163 @@ export class GmailController {
         const maxResults = limit ? parseInt(limit) : 50;
         return this.gmailService.searchEmails(req.user.userId, query, maxResults);
     }
+
+    /**
+     * Semantic search emails using vector embeddings
+     */
+    @Get('search/semantic')
+    @UseGuards(JwtAuthGuard)
+    async semanticSearchEmails(
+        @Request() req,
+        @Query('q') query: string,
+        @Query('threshold') threshold?: string,
+        @Query('limit') limit?: string,
+    ) {
+        const matchThreshold = threshold ? parseFloat(threshold) : 0.7;
+        const matchCount = limit ? parseInt(limit) : 50;
+
+        try {
+            const results = await this.semanticSearchService.semanticSearch(
+                req.user.userId,
+                query,
+                matchThreshold,
+                matchCount,
+            );
+
+            // Fetch full email details for each result
+            const emailPromises = results.map(result =>
+                this.gmailService.getEmailById(req.user.userId, result.gmail_message_id)
+            );
+            const fetchedEmails = await Promise.all(emailPromises);
+
+            // Map similarity scores to emails
+            const emailsWithScores = results
+                .map((result, index) => {
+                    const email = fetchedEmails[index];
+                    if (!email) return null;
+                    return { ...email, similarity: result.similarity };
+                })
+                .filter(item => item !== null);
+
+            return {
+                emails: emailsWithScores,
+                query,
+                totalResults: results.length,
+                searchType: 'semantic',
+            };
+        } catch (error) {
+            console.error('Semantic search error:', error);
+            // Fallback to fuzzy search if semantic search fails
+            return this.gmailService.searchEmails(req.user.userId, query, matchCount);
+        }
+    }
+
+    /**
+     * Generate and store embedding for a specific email
+     */
+    @Post('emails/:id/embedding')
+    @UseGuards(JwtAuthGuard)
+    async generateEmbedding(@Request() req, @Param('id') emailId: string) {
+        const email = await this.gmailService.getEmailById(req.user.userId, emailId);
+        if (!email) {
+            return { success: false, message: 'Email not found' };
+        }
+
+        await this.semanticSearchService.storeEmbedding(
+            req.user.userId,
+            emailId,
+            {
+                subject: email.subject,
+                snippet: email.snippet || undefined,
+                body: email.body,
+                from: email.from,
+            },
+        );
+
+        return { success: true, message: 'Embedding generated successfully' };
+    }
+
+    /**
+     * Generate embeddings for all emails in a mailbox
+     */
+    @Post('mailboxes/:id/embeddings')
+    @UseGuards(JwtAuthGuard)
+    async generateEmbeddingsForMailbox(
+        @Request() req,
+        @Param('id') mailboxId: string,
+        @Query('limit') limit?: string,
+    ) {
+        const maxResults = limit ? parseInt(limit) : 100;
+
+        const { emails } = await this.gmailService.getEmails(
+            req.user.userId,
+            mailboxId,
+            maxResults,
+        );
+
+        const emailsForEmbedding = emails
+            .filter(e => e !== null && e.id)
+            .map(e => ({
+                id: e.id!,
+                subject: e.subject,
+                snippet: e.snippet || undefined,
+                body: e.body,
+                from: e.from,
+            }));
+
+        await this.semanticSearchService.storeEmbeddingsBatch(
+            req.user.userId,
+            emailsForEmbedding,
+        );
+
+        return {
+            success: true,
+            message: `Generated embeddings for ${emailsForEmbedding.length} emails`,
+            count: emailsForEmbedding.length,
+        };
+    }
+
+    /**
+     * Get embedding statistics for user
+     */
+    @Get('embeddings/stats')
+    @UseGuards(JwtAuthGuard)
+    async getEmbeddingStats(@Request() req) {
+        const count = await this.semanticSearchService.getEmbeddingCount(req.user.userId);
+        return {
+            totalEmbeddings: count,
+            userId: req.user.userId,
+        };
+    }
+
+    /**
+     * Get search suggestions (senders, keywords)
+     * Returns unique senders and common subject keywords for autocomplete
+     */
+    @Get('search/suggestions')
+    @UseGuards(JwtAuthGuard)
+    async getSearchSuggestions(
+        @Request() req,
+        @Query('q') query?: string,
+    ) {
+        try {
+            // Get unique senders from user's email embeddings
+            const suggestions = await this.semanticSearchService.getSearchSuggestions(
+                req.user.userId,
+                query || '',
+            );
+
+            return {
+                suggestions,
+                query: query || '',
+            };
+        } catch (error) {
+            console.error('Error fetching search suggestions:', error);
+            return {
+                suggestions: [],
+                query: query || '',
+            };
+        }
+    }
 }
+

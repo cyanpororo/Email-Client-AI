@@ -42,8 +42,9 @@ function App() {
               </ProtectedRoute>
             }
           />
+
           <Route
-            path="/inbox"
+            path="/inbox/*"
             element={
               <ProtectedRoute>
                 <Inbox />
@@ -58,7 +59,6 @@ function App() {
               </RoleProtectedRoute>
             }
           />
-          <Route path="*" element={<Navigate to="/home" replace />} />
         </Routes>
       </Layout>
     </AuthProvider>

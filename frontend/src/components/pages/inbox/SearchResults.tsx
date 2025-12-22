@@ -106,9 +106,8 @@ export function SearchResults({
               return (
                 <div
                   key={email.id}
-                  className={`p-4 cursor-pointer transition-colors ${
-                    isHovered ? "bg-blue-50" : "bg-white hover:bg-gray-50"
-                  }`}
+                  className={`p-4 cursor-pointer transition-colors ${isHovered ? "bg-blue-50" : "bg-white hover:bg-gray-50"
+                    }`}
                   onClick={() => onEmailClick(email)}
                   onMouseEnter={() => setHoveredId(email.id)}
                   onMouseLeave={() => setHoveredId(null)}
@@ -131,9 +130,8 @@ export function SearchResults({
                       {/* Sender */}
                       <div className="flex items-center gap-2 mb-1">
                         <span
-                          className={`font-semibold truncate ${
-                            email.isRead ? "text-gray-700" : "text-gray-900"
-                          }`}
+                          className={`font-semibold truncate ${email.isRead ? "text-gray-700" : "text-gray-900"
+                            }`}
                         >
                           {senderName}
                         </span>
@@ -151,9 +149,8 @@ export function SearchResults({
 
                       {/* Subject */}
                       <div
-                        className={`text-sm mb-1 truncate ${
-                          email.isRead ? "text-gray-700" : "text-gray-900 font-semibold"
-                        }`}
+                        className={`text-sm mb-1 truncate ${email.isRead ? "text-gray-700" : "text-gray-900 font-semibold"
+                          }`}
                       >
                         {email.subject || "(No Subject)"}
                       </div>
@@ -171,7 +168,7 @@ export function SearchResults({
                             day: "numeric",
                             year:
                               new Date(email.timestamp).getFullYear() !==
-                              new Date().getFullYear()
+                                new Date().getFullYear()
                                 ? "numeric"
                                 : undefined,
                           })}
@@ -179,6 +176,11 @@ export function SearchResults({
                         {email.hasAttachments && (
                           <span className="flex items-center gap-1">
                             📎 Attachment
+                          </span>
+                        )}
+                        {email.similarity !== undefined && (
+                          <span className="flex items-center gap-1 text-green-600 font-medium" title="Semantic Similarity Score">
+                            🎯 {(email.similarity * 100).toFixed(1)}% Match
                           </span>
                         )}
                       </div>

@@ -44,6 +44,7 @@ export type GmailEmail = {
         size: number;
         type: string;
     }>;
+    similarity?: number;
 };
 
 export type GmailEmailsResponse = {
@@ -291,6 +292,7 @@ export function mapGmailEmailToEmail(gmailEmail: GmailEmail): {
     isStarred: boolean;
     hasAttachments: boolean;
     attachments?: Array<{ id: string; name: string; size: number; type: string }>;
+    similarity?: number;
 } {
     return {
         id: gmailEmail.id,
@@ -307,6 +309,7 @@ export function mapGmailEmailToEmail(gmailEmail: GmailEmail): {
         isStarred: gmailEmail.isStarred,
         hasAttachments: gmailEmail.hasAttachments,
         attachments: gmailEmail.attachments,
+        similarity: gmailEmail.similarity,
     };
 }
 
@@ -334,4 +337,38 @@ export async function searchGmailEmails(
         `/api/gmail/search?${params.toString()}`
     );
     return response.data;
+}
+
+/**
+ * Search emails with semantic/vector search
+ */
+export async function searchGmailEmailsSemantic(
+    query: string,
+    limit: number = 50,
+    threshold: number = 0.5
+): Promise<{ emails: GmailEmail[]; query: string; totalResults?: number; searchType?: string }> {
+    const params = new URLSearchParams();
+    params.append('q', query);
+    params.append('limit', limit.toString());
+    params.append('threshold', threshold.toString());
+
+    const response = await gmailApi.get(
+        `/api/gmail/search/semantic?${params.toString()}`
+    );
+    return response.data;
+}
+
+/**
+ * Get search suggestions for autocomplete
+ */
+export async function getSearchSuggestions(query: string = ''): Promise<string[]> {
+    const params = new URLSearchParams();
+    if (query) {
+        params.append('q', query);
+    }
+
+    const response = await gmailApi.get(
+        `/api/gmail/search/suggestions?${params.toString()}`
+    );
+    return response.data.suggestions || [];
 }
