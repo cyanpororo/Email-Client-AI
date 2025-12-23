@@ -7,8 +7,8 @@ interface KanbanSettingsProps {
     onClose: () => void;
     columns: KanbanColumn[];
     gmailLabels: Array<{ id: string; name: string }>;
-    onCreateColumn: (data: { name: string; gmailLabel?: string }) => Promise<void>;
-    onUpdateColumn: (columnId: string, data: { name?: string; gmailLabel?: string }) => Promise<void>;
+    onCreateColumn: (data: { name: string; gmailLabel?: string }) => Promise<KanbanColumn>;
+    onUpdateColumn: (columnId: string, data: { name?: string; gmailLabel?: string }) => Promise<KanbanColumn>;
     onDeleteColumn: (columnId: string) => Promise<void>;
 }
 
