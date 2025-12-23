@@ -19,6 +19,66 @@ export class GmailService {
   ) { }
 
   /**
+   * Apply Gmail label based on Kanban column configuration
+   */
+  async applyColumnLabel(userId: string, emailId: string, columnName: string): Promise<void> {
+    try {
+      // Get column configuration
+      const supabase = this.supabaseService.getClient();
+      const { data: column } = await supabase
+        .from('kanban_columns')
+        .select('gmail_label')
+        .eq('user_id', userId)
+        .eq('name', columnName)
+        .maybeSingle();
+
+      // If column has a Gmail label mapping, apply it
+      if (column?.gmail_label) {
+        const auth = await this.getAuthenticatedClient(userId);
+        const gmail = google.gmail({ version: 'v1', auth });
+
+        // Determine labels to add/remove based on the column
+        const addLabelIds: string[] = [];
+        const removeLabelIds: string[] = [];
+
+        // Map common column labels
+        const labelMapping: Record<string, { add: string[], remove: string[] }> = {
+          'INBOX': { add: ['INBOX'], remove: [] },
+          'STARRED': { add: ['STARRED'], remove: [] },
+          'IMPORTANT': { add: ['IMPORTANT'], remove: [] },
+          'TRASH': { add: ['TRASH'], remove: ['INBOX'] },
+        };
+
+        const labelConfig = labelMapping[column.gmail_label];
+        if (labelConfig) {
+          addLabelIds.push(...labelConfig.add);
+          removeLabelIds.push(...labelConfig.remove);
+        } else {
+          // Custom label - just add it
+          addLabelIds.push(column.gmail_label);
+        }
+
+        // Apply the labels
+        if (addLabelIds.length > 0 || removeLabelIds.length > 0) {
+          await gmail.users.messages.modify({
+            userId: 'me',
+            id: emailId,
+            requestBody: {
+              addLabelIds: addLabelIds.length > 0 ? addLabelIds : undefined,
+              removeLabelIds: removeLabelIds.length > 0 ? removeLabelIds : undefined,
+            },
+          });
+
+          console.log(`[Gmail] Applied label ${column.gmail_label} to email ${emailId}`);
+        }
+      }
+    } catch (error) {
+      console.error('[Gmail] Error applying column label:', error);
+      // Don't throw - we don't want label sync failures to break workflow updates
+    }
+  }
+
+  /**
    * Create OAuth2 client instance
    */
   private createOAuth2Client() {

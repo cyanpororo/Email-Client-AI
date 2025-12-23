@@ -372,3 +372,67 @@ export async function getSearchSuggestions(query: string = ''): Promise<string[]
     );
     return response.data.suggestions || [];
 }
+
+// ===== Kanban Column Management =====
+
+export type KanbanColumn = {
+    id: string;
+    user_id: string;
+    name: string;
+    gmail_label: string | null;
+    position: number;
+    is_default: boolean;
+    created_at: string;
+    updated_at: string;
+};
+
+export type CreateColumnRequest = {
+    name: string;
+    gmailLabel?: string;
+    isDefault?: boolean;
+};
+
+export type UpdateColumnRequest = {
+    name?: string;
+    gmailLabel?: string;
+    isDefault?: boolean;
+};
+
+/**
+ * Get all Kanban columns for the current user
+ */
+export async function getKanbanColumns(): Promise<KanbanColumn[]> {
+    const response = await gmailApi.get('/api/gmail/kanban/columns');
+    return response.data;
+}
+
+/**
+ * Create a new Kanban column
+ */
+export async function createKanbanColumn(data: CreateColumnRequest): Promise<KanbanColumn> {
+    const response = await gmailApi.post('/api/gmail/kanban/columns', data);
+    return response.data;
+}
+
+/**
+ * Update a Kanban column
+ */
+export async function updateKanbanColumn(columnId: string, data: UpdateColumnRequest): Promise<KanbanColumn> {
+    const response = await gmailApi.post(`/api/gmail/kanban/columns/${columnId}`, data);
+    return response.data;
+}
+
+/**
+ * Delete a Kanban column
+ */
+export async function deleteKanbanColumn(columnId: string): Promise<void> {
+    await gmailApi.post(`/api/gmail/kanban/columns/${columnId}/delete`);
+}
+
+/**
+ * Reorder Kanban columns
+ */
+export async function reorderKanbanColumns(columnIds: string[]): Promise<KanbanColumn[]> {
+    const response = await gmailApi.post('/api/gmail/kanban/columns/reorder', { columnIds });
+    return response.data;
+}

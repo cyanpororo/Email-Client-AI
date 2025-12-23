@@ -15,12 +15,15 @@ import { GmailService } from './gmail.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { GmailAuthDto, SendEmailDto, ModifyEmailDto } from './dto/gmail.dto';
 import { SemanticSearchService } from './semantic-search.service';
+import { KanbanColumnService } from './kanban-column.service';
+import { CreateColumnDto, UpdateColumnDto, ReorderColumnsDto } from './dto/kanban-column.dto';
 
 @Controller('api/gmail')
 export class GmailController {
     constructor(
         private readonly gmailService: GmailService,
         private readonly semanticSearchService: SemanticSearchService,
+        private readonly kanbanColumnService: KanbanColumnService,
     ) { }
 
     /**
@@ -409,6 +412,58 @@ export class GmailController {
                 query: query || '',
             };
         }
+    }
+
+    // ===== Kanban Column Management Endpoints =====
+
+    /**
+     * Get all kanban columns for the user
+     */
+    @Get('kanban/columns')
+    @UseGuards(JwtAuthGuard)
+    async getKanbanColumns(@Request() req) {
+        return this.kanbanColumnService.getUserColumns(req.user.userId);
+    }
+
+    /**
+     * Create a new kanban column
+     */
+    @Post('kanban/columns')
+    @UseGuards(JwtAuthGuard)
+    async createKanbanColumn(@Request() req, @Body() dto: CreateColumnDto) {
+        return this.kanbanColumnService.createColumn(req.user.userId, dto);
+    }
+
+    /**
+     * Update a kanban column
+     */
+    @Post('kanban/columns/:id')
+    @UseGuards(JwtAuthGuard)
+    async updateKanbanColumn(
+        @Request() req,
+        @Param('id') columnId: string,
+        @Body() dto: UpdateColumnDto,
+    ) {
+        return this.kanbanColumnService.updateColumn(req.user.userId, columnId, dto);
+    }
+
+    /**
+     * Delete a kanban column
+     */
+    @Post('kanban/columns/:id/delete')
+    @UseGuards(JwtAuthGuard)
+    async deleteKanbanColumn(@Request() req, @Param('id') columnId: string) {
+        await this.kanbanColumnService.deleteColumn(req.user.userId, columnId);
+        return { success: true, message: 'Column deleted successfully' };
+    }
+
+    /**
+     * Reorder kanban columns
+     */
+    @Post('kanban/columns/reorder')
+    @UseGuards(JwtAuthGuard)
+    async reorderKanbanColumns(@Request() req, @Body() dto: ReorderColumnsDto) {
+        return this.kanbanColumnService.reorderColumns(req.user.userId, dto.columnIds);
     }
 }
 

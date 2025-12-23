@@ -154,6 +154,13 @@ export class WorkflowService {
       console.error('Error updating workflow:', error);
       throw new InternalServerErrorException('Failed to update workflow');
     }
+
+    // Apply Gmail label based on column configuration (background, non-blocking)
+    if (status !== undefined && status !== 'Snoozed') {
+      this.gmailService.applyColumnLabel(userId, gmailMessageId, status)
+        .catch(err => console.error('Failed to sync Gmail label:', err));
+    }
+
     return data;
   }
 }
