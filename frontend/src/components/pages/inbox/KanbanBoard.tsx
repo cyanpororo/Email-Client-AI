@@ -3,14 +3,15 @@ import { DndContext, DragOverlay, useSensor, useSensors, PointerSensor, TouchSen
 import type { Email } from './types';
 import { KanbanCard } from './KanbanCard';
 import { fetchWorkflows, updateWorkflow, generateSummary, type WorkflowState } from '../../../api/workflow';
+import { useKanbanColumns } from '../../../hooks/useKanbanColumns';
+import { KanbanSettings } from './KanbanSettings';
+import { getGmailLabels, type GmailLabel } from '../../../api/gmail';
 
 interface KanbanBoardProps {
     emails: Email[];
     onEmailClick: (email: Email) => void;
     currentMailboxId: string;
 }
-
-const COLUMNS = ['Inbox', 'To Do', 'In Progress', 'Done', 'Snoozed'];
 
 function DroppableColumn({ id, children }: { id: string; children: React.ReactNode }) {
     const { setNodeRef, isOver } = useDroppable({ id });
@@ -31,6 +32,18 @@ export function KanbanBoard({ emails, onEmailClick }: KanbanBoardProps) {
     const [generatingSummaries, setGeneratingSummaries] = useState<Set<string>>(new Set());
     const [summaryErrors, setSummaryErrors] = useState<Record<string, string>>({});
     const requestedSummariesRef = useRef<Set<string>>(new Set());
+    const [showSettings, setShowSettings] = useState(false);
+    const [gmailLabels, setGmailLabels] = useState<GmailLabel[]>([]);
+    
+    // Use dynamic columns from hook
+    const { 
+        columns, 
+        isLoading: columnsLoading,
+        error: columnsError,
+        createColumn, 
+        updateColumn, 
+        deleteColumn 
+    } = useKanbanColumns();
 
     const loadWorkflows = useCallback(() => {
         if (emails.length === 0) return;
@@ -48,6 +61,13 @@ export function KanbanBoard({ emails, onEmailClick }: KanbanBoardProps) {
         const interval = setInterval(loadWorkflows, 30000);
         return () => clearInterval(interval);
     }, [loadWorkflows]);
+
+    // Load Gmail labels for settings
+    useEffect(() => {
+        getGmailLabels()
+            .then(labels => setGmailLabels(labels))
+            .catch(err => console.error('Failed to load Gmail labels:', err));
+    }, []);
 
     // Auto-generate summaries for emails missing one
     useEffect(() => {
@@ -214,51 +234,154 @@ export function KanbanBoard({ emails, onEmailClick }: KanbanBoardProps) {
 
     const activeEmail = activeId ? emails.find(e => e.id === activeId) : null;
 
-    return (
-        <DndContext
-            sensors={sensors}
-            onDragEnd={handleDragEnd}
-            onDragStart={handleDragStart}
-        >
-            <div className="flex h-full p-4 gap-4 overflow-x-auto bg-gray-100">
-                {COLUMNS.map(col => (
-                    <div key={col} className="flex-shrink-0 w-80 flex flex-col bg-gray-50 rounded-xl shadow-sm h-full border border-gray-200">
-                        <div className="p-3 border-b border-gray-100 flex justify-between items-center bg-white rounded-t-xl">
-                            <h3 className="font-semibold text-gray-700">{col}</h3>
-                            <span className="bg-gray-100 text-gray-600 rounded-full px-2.5 py-0.5 text-xs font-medium">
-                                {getEmailsByColumn(col).length}
-                            </span>
-                        </div>
-
-                        {/* Droppable Area */}
-                        <DroppableColumn id={col}>
-                            {getEmailsByColumn(col).map(email => (
-                                <KanbanCard
-                                    key={email.id}
-                                    email={email}
-                                    workflow={workflows[email.id]}
-                                    onClick={onEmailClick}
-                                    onSnooze={handleSnooze}
-                                    isGeneratingSummary={generatingSummaries.has(email.id)}
-                                    summaryError={summaryErrors[email.id]}
-                                />
-                            ))}
-                        </DroppableColumn>
-                    </div>
-                ))}
+    // Show loading state
+    if (columnsLoading) {
+        return (
+            <div className="flex h-full items-center justify-center bg-gray-100">
+                <div className="text-center">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                    <p className="text-gray-600">Loading Kanban board...</p>
+                </div>
             </div>
-            <DragOverlay>
-                {activeEmail ? (
-                    <div className="transform rotate-2 cursor-grabbing w-80 opacity-90">
-                        <KanbanCard
-                            email={activeEmail}
-                            workflow={workflows[activeEmail.id]}
-                            onClick={() => { }}
-                            onSnooze={handleSnooze}
-                        />
+        );
+    }
+
+    // Show error state
+    if (columnsError) {
+        return (
+            <div className="flex h-full items-center justify-center bg-gray-100">
+                <div className="text-center max-w-md p-6 bg-white rounded-lg shadow-lg">
+                    <div className="text-6xl mb-4">⚠️</div>
+                    <h2 className="text-xl font-semibold text-gray-900 mb-2">
+                        Failed to Load Columns
+                    </h2>
+                    <p className="text-gray-600 mb-4">
+                        {columnsError}
+                    </p>
+                    <div className="text-sm text-gray-500 mb-4">
+                        Check the browser console for more details.
                     </div>
-                ) : null}
-            </DragOverlay>
-        </DndContext>
+                    <button
+                        onClick={() => window.location.reload()}
+                        className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                    >
+                        Retry
+                    </button>
+                </div>
+            </div>
+        );
+    }
+
+    // Show empty state if no columns
+    if (columns.length === 0) {
+        return (
+            <div className="flex h-full items-center justify-center bg-gray-100">
+                <div className="text-center max-w-md p-6 bg-white rounded-lg shadow-lg">
+                    <div className="text-6xl mb-4">📋</div>
+                    <h2 className="text-xl font-semibold text-gray-900 mb-2">
+                        No Columns Found
+                    </h2>
+                    <p className="text-gray-600 mb-4">
+                        Default columns should have been created automatically. This might indicate a database issue.
+                    </p>
+                    <div className="text-sm text-gray-500 mb-4">
+                        Please check:
+                        <ul className="list-disc list-inside mt-2 text-left">
+                            <li>Backend is running</li>
+                            <li>Database table exists</li>
+                            <li>RLS policies are correct</li>
+                        </ul>
+                    </div>
+                    <button
+                        onClick={() => setShowSettings(true)}
+                        className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
+                    >
+                        Create Column Manually
+                    </button>
+                </div>
+            </div>
+        );
+    }
+
+    return (
+        <>
+            <DndContext
+                sensors={sensors}
+                onDragEnd={handleDragEnd}
+                onDragStart={handleDragStart}
+            >
+                <div className="flex flex-col h-full bg-gray-100">
+                    {/* Settings Button */}
+                    <div className="px-4 pt-4 pb-2 flex justify-end">
+                        <button
+                            onClick={() => setShowSettings(true)}
+                            className="px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors flex items-center gap-2 shadow-sm"
+                        >
+                            <span>⚙️</span>
+                            Configure Columns
+                        </button>
+                    </div>
+
+                    {/* Kanban Board */}
+                    <div className="flex flex-1 px-4 pb-4 gap-4 overflow-x-auto">
+                        {columns.map(col => (
+                            <div key={col.id} className="flex-shrink-0 w-80 flex flex-col bg-gray-50 rounded-xl shadow-sm h-full border border-gray-200">
+                                <div className="p-3 border-b border-gray-100 flex justify-between items-center bg-white rounded-t-xl">
+                                    <div className="flex items-center gap-2">
+                                        <h3 className="font-semibold text-gray-700">{col.name}</h3>
+                                        {col.gmail_label && (
+                                            <span className="text-xs text-gray-500" title={`Syncs with Gmail label: ${col.gmail_label}`}>
+                                                🔗
+                                            </span>
+                                        )}
+                                    </div>
+                                    <span className="bg-gray-100 text-gray-600 rounded-full px-2.5 py-0.5 text-xs font-medium">
+                                        {getEmailsByColumn(col.name).length}
+                                    </span>
+                                </div>
+
+                                {/* Droppable Area */}
+                                <DroppableColumn id={col.name}>
+                                    {getEmailsByColumn(col.name).map(email => (
+                                        <KanbanCard
+                                            key={email.id}
+                                            email={email}
+                                            workflow={workflows[email.id]}
+                                            onClick={onEmailClick}
+                                            onSnooze={handleSnooze}
+                                            isGeneratingSummary={generatingSummaries.has(email.id)}
+                                            summaryError={summaryErrors[email.id]}
+                                        />
+                                    ))}
+                                </DroppableColumn>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+                <DragOverlay>
+                    {activeEmail ? (
+                        <div className="transform rotate-2 cursor-grabbing w-80 opacity-90">
+                            <KanbanCard
+                                email={activeEmail}
+                                workflow={workflows[activeEmail.id]}
+                                onClick={() => { }}
+                                onSnooze={handleSnooze}
+                            />
+                        </div>
+                    ) : null}
+                </DragOverlay>
+            </DndContext>
+
+            {/* Settings Modal */}
+            <KanbanSettings
+                isOpen={showSettings}
+                onClose={() => setShowSettings(false)}
+                columns={columns}
+                gmailLabels={gmailLabels.map(l => ({ id: l.id, name: l.name }))}
+                onCreateColumn={createColumn}
+                onUpdateColumn={updateColumn}
+                onDeleteColumn={deleteColumn}
+            />
+        </>
     );
 }
