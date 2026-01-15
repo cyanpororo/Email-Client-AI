@@ -11,6 +11,7 @@ export function useComposeFlow() {
     const [composeSubject, setComposeSubject] = useState("");
     const [composeBody, setComposeBody] = useState("");
     const [replyToEmailId, setReplyToEmailId] = useState<string | null>(null);
+    const [attachments, setAttachments] = useState<File[]>([]);
 
     const queryClient = useQueryClient();
 
@@ -22,16 +23,49 @@ export function useComposeFlow() {
         setComposeSubject("");
         setComposeBody("");
         setReplyToEmailId(null);
+        setAttachments([]);
+    };
+
+    // Helper: Convert file to base64
+    const fileToBase64 = (file: File): Promise<string> => {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.readAsDataURL(file);
+            reader.onload = () => {
+                const base64 = reader.result as string;
+                // Remove the data URL prefix (e.g., "data:image/png;base64,")
+                const base64Data = base64.split(',')[1];
+                resolve(base64Data);
+            };
+            reader.onerror = error => reject(error);
+        });
+    };
+
+    // Helper: Handle file selection
+    const handleAttachFile = (files: FileList | null) => {
+        if (!files) return;
+        const newFiles = Array.from(files);
+        setAttachments(prev => [...prev, ...newFiles]);
+    };
+
+    // Helper: Remove attachment
+    const handleRemoveAttachment = (index: number) => {
+        setAttachments(prev => prev.filter((_, i) => i !== index));
     };
 
     // Send email mutation
     const sendEmailMutation = useMutation({
-        mutationFn: (emailData: {
+        mutationFn: async (emailData: {
             to: string[];
             cc?: string[];
             subject: string;
             body: string;
             inReplyTo?: string;
+            attachments?: Array<{
+                filename: string;
+                mimeType: string;
+                data: string;
+            }>
         }) => {
             if (composeMode === "reply" && replyToEmailId) {
                 return gmailApi.replyToGmailEmail(replyToEmailId, emailData);
@@ -106,7 +140,7 @@ export function useComposeFlow() {
     };
 
     // Handle compose form submission
-    const handleComposeSubmit = (e: React.FormEvent) => {
+    const handleComposeSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         const toEmails = composeTo
             .split(",")
@@ -119,12 +153,30 @@ export function useComposeFlow() {
                 .filter(Boolean)
             : undefined;
 
+        // Convert attachments to base64
+        let attachmentsData: Array<{
+            filename: string;
+            mimeType: string;
+            data: string;
+        }> | undefined;
+
+        if (attachments.length > 0) {
+            attachmentsData = await Promise.all(
+                attachments.map(async (file) => ({
+                    filename: file.name,
+                    mimeType: file.type || 'application/octet-stream',
+                    data: await fileToBase64(file),
+                }))
+            );
+        }
+
         sendEmailMutation.mutate({
             to: toEmails,
             cc: ccEmails,
             subject: composeSubject,
             body: composeBody,
             inReplyTo: replyToEmailId || undefined,
+            attachments: attachmentsData,
         });
     };
 
@@ -140,6 +192,9 @@ export function useComposeFlow() {
         setComposeSubject,
         composeBody,
         setComposeBody,
+        attachments,
+        handleAttachFile,
+        handleRemoveAttachment,
         sendEmailMutation,
         handleReply,
         handleReplyAll,

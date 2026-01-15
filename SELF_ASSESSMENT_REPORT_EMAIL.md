@@ -64,33 +64,33 @@ Students must input minus points to every uncompleted feature in the SE column.
 |  | Auto-return on schedule | \-0.5 | \-0 |  | Email automatically returns to board at scheduled time |
 | **6** | **AI Features** |  |  |  |  |
 |  | AI Summarization |  |  |  |  |
-|  | › Backend summarization API | \-0.5 |  |  | LLM integration (OpenAI/Gemini) to summarize email content |
-|  | › Summary UI on cards | \-0.25 |  |  | Display 2-3 line summary on email cards |
+|  | › Backend summarization API | \-0.5 | \-0 |  | LLM integration (OpenAI/Gemini) to summarize email content |
+|  | › Summary UI on cards | \-0.25 | \-0 |  | Display 2-3 line summary on email cards |
 |  | Text Embedding |  |  |  |  |
-|  | › Embedding generation | \-0.5 |  |  | Generate vector embeddings for emails using embedding model |
-|  | › Vector database storage | \-0.5 |  |  | Store embeddings in vector database (pgvector, etc.) |
+|  | › Embedding generation | \-0.5 | \-0 |  | Generate vector embeddings for emails using embedding model |
+|  | › Vector database storage | \-0.5 | \-0 |  | Store embeddings in vector database (pgvector, etc.) |
 | **7** | **Search Features** |  |  |  |  |
 |  | Fuzzy Search (Backend) |  |  |  |  |
-|  | › Typo tolerance | \-0.5 |  |  | "marketng" finds "marketing" |
-|  | › Partial matches | \-0.5 |  |  | "Nguy" finds "Nguyen Van A" |
-|  | › Relevance ranking | \-0.25 |  |  | Best matches ranked first |
+|  | › Typo tolerance | \-0.5 | \-0 |  | "marketng" finds "marketing" |
+|  | › Partial matches | \-0.5 | \-0 |  | "Nguy" finds "Nguyen Van A" |
+|  | › Relevance ranking | \-0.25 | \-0 |  | Best matches ranked first |
 |  | Fuzzy Search UI (Frontend) |  |  |  |  |
-|  | › Search bar integration | \-0.25 |  |  | Search bar in header/main UI |
-|  | › Search results as cards | \-0.25 |  |  | Results displayed as email cards with sender, subject, snippet |
-|  | › Loading/empty/error states | \-0.25 |  |  | Handle UX states properly |
-|  | › Navigation back to main view | \-0.25 |  |  | Clear way to return to Kanban view |
+|  | › Search bar integration | \-0.25 | \-0 |  | Search bar in header/main UI |
+|  | › Search results as cards | \-0.25 | \-0 |  | Results displayed as email cards with sender, subject, snippet |
+|  | › Loading/empty/error states | \-0.25 | \-0 |  | Handle UX states properly |
+|  | › Navigation back to main view | \-0.25 | \-0 |  | Clear way to return to Kanban view |
 |  | Semantic Search |  |  |  |  |
-|  | › Conceptual relevance search | \-0.5 |  |  | Query "money" finds "invoice", "price", "salary" |
-|  | › Semantic search API endpoint | \-0.25 |  |  | POST /api/search/semantic endpoint |
+|  | › Conceptual relevance search | \-0.5 | \-0 |  | Query "money" finds "invoice", "price", "salary" |
+|  | › Semantic search API endpoint | \-0.25 | \-0 |  | POST /api/search/semantic endpoint |
 |  | Search Auto-Suggestion |  |  |  |  |
-|  | › Type-ahead dropdown | \-0.25 |  |  | Dropdown appears while typing with 3-5 suggestions |
-|  | › Suggestions from contacts/keywords | \-0.25 |  |  | Suggestions populated from sender names, subject keywords |
-|  | › Trigger search on selection | \-0.25 |  |  | Clicking suggestion triggers semantic search |
+|  | › Type-ahead dropdown | \-0.25 | \-0 |  | Dropdown appears while typing with 3-5 suggestions |
+|  | › Suggestions from contacts/keywords | \-0.25 | \-0 |  | Suggestions populated from sender names, subject keywords |
+|  | › Trigger search on selection | \-0.25 | \-0 |  | Clicking suggestion triggers semantic search |
 | **8** | **Filtering & Sorting** |  |  |  |  |
-|  | Sort by date (newest/oldest) | \-0.25 |  |  | At least two sorting options |
-|  | Filter by unread | \-0.25 |  |  | Show only unread emails |
-|  | Filter by attachments | \-0.25 |  |  | Show only emails with attachments |
-|  | Real-time filter updates | \-0.25 |  |  | Changes apply immediately without page reload |
+|  | Sort by date (newest/oldest) | \-0.25 | \-0 |  | At least two sorting options |
+|  | Filter by unread | \-0.25 | \-0 |  | Show only unread emails |
+|  | Filter by attachments | \-0.25 | \-0 |  | Show only emails with attachments |
+|  | Real-time filter updates | \-0.25 | \-0 |  | Changes apply immediately without page reload |
 | **9** | **Email Actions** |  |  |  |  |
 |  | Mark as read/unread | \-0.25 |  |  | Toggle read status via Gmail API |
 |  | Compose modal | \-0.25 |  |  | Modal to compose new email |

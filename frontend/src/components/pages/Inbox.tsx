@@ -109,26 +109,25 @@ export default function Inbox() {
     ? gmailApi.mapGmailEmailToEmail(selectedGmailEmail)
     : null;
 
-  // 4. Derived Data (Kanban Filter/Sort)
+  // 4. Derived Data (Filter/Sort for both Kanban and List views)
   const processedEmails = useMemo(() => {
     let result = [...emails];
 
-    if (nav.viewMode === 'kanban') {
-      if (nav.filterUnread) {
-        result = result.filter(e => !e.isRead);
-      }
-      if (nav.filterHasAttachment) {
-        result = result.filter(e => e.hasAttachments);
-      }
-
-      result.sort((a, b) => {
-        const dateA = new Date(a.timestamp || 0).getTime();
-        const dateB = new Date(b.timestamp || 0).getTime();
-        return nav.kanbanSortOrder === 'newest' ? dateB - dateA : dateA - dateB;
-      });
+    if (nav.filterUnread) {
+      result = result.filter(e => !e.isRead);
     }
+    if (nav.filterHasAttachment) {
+      result = result.filter(e => e.hasAttachments);
+    }
+
+    result.sort((a, b) => {
+      const dateA = new Date(a.timestamp || 0).getTime();
+      const dateB = new Date(b.timestamp || 0).getTime();
+      return nav.kanbanSortOrder === 'newest' ? dateB - dateA : dateA - dateB;
+    });
+
     return result;
-  }, [emails, nav.viewMode, nav.filterUnread, nav.filterHasAttachment, nav.kanbanSortOrder]);
+  }, [emails, nav.filterUnread, nav.filterHasAttachment, nav.kanbanSortOrder]);
 
   // 5. Shortcuts
   useInboxShortcuts({
@@ -267,7 +266,7 @@ export default function Inbox() {
                 </div>
               ) : (
                 <EmailListView
-                  emails={emails}
+                  emails={processedEmails}
                   selectedEmailId={selection.selectedEmailId}
                   selectedEmails={selection.selectedEmails}
                   selectedMailboxId={nav.selectedMailboxId}
@@ -355,6 +354,9 @@ export default function Inbox() {
           setSubject={compose.setComposeSubject}
           body={compose.composeBody}
           setBody={compose.setComposeBody}
+          attachments={compose.attachments}
+          onAttachFile={compose.handleAttachFile}
+          onRemoveAttachment={compose.handleRemoveAttachment}
           onClose={() => compose.setShowCompose(false)}
           onSend={compose.handleComposeSubmit}
           sending={compose.sendEmailMutation.isPending}
