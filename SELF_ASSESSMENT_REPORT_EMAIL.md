@@ -50,18 +50,18 @@ Students must input minus points to every uncompleted feature in the SE column.
 |  | Mailbox/Labels list | \-0.25 | \-0 |  | Display Gmail labels/folders in sidebar |
 |  | Open in Gmail link | \-0.25 | \-0 |  | Button/icon to open email in Gmail |
 | **4** | **Kanban Board Interface** |  |  |  |  |
-|  | Kanban board layout | \-0.5 |  |  | Board with columns: Inbox, To Do, Done, etc. |
-|  | Email cards display | \-0.25 |  |  | Cards showing sender, subject, snippet |
-|  | Drag-and-drop between columns | \-0.5 |  |  | Drag cards to change email status |
-|  | Status persistence | \-0.25 |  |  | Status changes saved and persisted |
+|  | Kanban board layout | \-0.5 | \-0 |  | Board with columns: Inbox, To Do, Done, etc. |
+|  | Email cards display | \-0.25 | \-0 |  | Cards showing sender, subject, snippet |
+|  | Drag-and-drop between columns | \-0.5 | \-0 |  | Drag cards to change email status |
+|  | Status persistence | \-0.25 | \-0 |  | Status changes saved and persisted |
 |  | Dynamic Kanban Configuration |  |  |  |  |
-|  | › Settings interface | \-0.25 |  |  | Modal/page to create, rename, delete columns |
-|  | › Configuration persistence | \-0.25 |  |  | Custom columns saved and restored after reload |
-|  | › Gmail label mapping | \-0.5 |  |  | Columns map to Gmail labels, moving cards syncs labels |
+|  | › Settings interface | \-0.25 | \-0 |  | Modal/page to create, rename, delete columns |
+|  | › Configuration persistence | \-0.25 | \-0 |  | Custom columns saved and restored after reload |
+|  | › Gmail label mapping | \-0.5 | \-0 |  | Columns map to Gmail labels, moving cards syncs labels |
 | **5** | **Snooze Mechanism** |  |  |  |  |
-|  | Select snooze time | \-0.25 |  |  | Choose snooze duration (Tomorrow, Next week, custom) |
-|  | Hide snoozed emails | \-0.25 |  |  | Email disappears from Kanban after snooze |
-|  | Auto-return on schedule | \-0.5 |  |  | Email automatically returns to board at scheduled time |
+|  | Select snooze time | \-0.25 | \-0 |  | Choose snooze duration (Tomorrow, Next week, custom) |
+|  | Hide snoozed emails | \-0.25 | \-0 |  | Email disappears from Kanban after snooze |
+|  | Auto-return on schedule | \-0.5 | \-0 |  | Email automatically returns to board at scheduled time |
 | **6** | **AI Features** |  |  |  |  |
 |  | AI Summarization |  |  |  |  |
 |  | › Backend summarization API | \-0.5 |  |  | LLM integration (OpenAI/Gemini) to summarize email content |
