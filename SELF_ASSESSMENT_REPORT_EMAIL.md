@@ -31,7 +31,7 @@ Students must input minus points to every uncompleted feature in the SE column.
 |  | Website layout | \-2 | \-0 |  | 3-column layout: mailbox list, email list, email detail. Kanban board view |
 |  | Website architect | \-3 | \-0 |  | React SPA with backend API. Clear separation of concerns. OAuth2 flow, token handling |
 |  | Website stability and compatibility | \-4 | \-0 |  | Responsive design, tested on Chrome, Safari, Firefox, and Edge |
-|  | Document | \-2 |  |  | README with setup guide, API endpoints, Google OAuth setup, token storage explanation, security considerations |
+|  | Document | \-2 | \-0 |  | README with setup guide, API endpoints, Google OAuth setup, token storage explanation, security considerations |
 |  | Demo video | \-5 |  |  | Video demonstrating: Gmail login, inbox sync, Kanban board, AI summarization, semantic search, drag-drop |
 |  | Publish to public hosts | \-1 | \-0 |  | Frontend deployed (Netlify/Vercel), Backend deployed (Render/Railway/Cloud Run) |
 |  | Development progress is recorded in Github | \-7 | \-0 |  | Git history with meaningful commits, branches for features, pull requests |
@@ -92,20 +92,20 @@ Students must input minus points to every uncompleted feature in the SE column.
 |  | Filter by attachments | \-0.25 | \-0 |  | Show only emails with attachments |
 |  | Real-time filter updates | \-0.25 | \-0 |  | Changes apply immediately without page reload |
 | **9** | **Email Actions** |  |  |  |  |
-|  | Mark as read/unread | \-0.25 |  |  | Toggle read status via Gmail API |
-|  | Compose modal | \-0.25 |  |  | Modal to compose new email |
-|  | Reply/Forward flow | \-0.25 |  |  | Reply to and forward emails |
-|  | Send via Gmail API | \-0.25 |  |  | Send emails through Gmail API |
-|  | View attachments | \-0.25 |  |  | Display attachments in email detail |
-|  | Download attachments | \-0.25 |  |  | Download attachment files |
-|  | Delete emails | \-0.25 |  |  | Move to trash via Gmail API |
+|  | Mark as read/unread | \-0.25 | \-0 |  | Toggle read status via Gmail API |
+|  | Compose modal | \-0.25 | \-0 |  | Modal to compose new email |
+|  | Reply/Forward flow | \-0.25 | \-0 |  | Reply to and forward emails |
+|  | Send via Gmail API | \-0.25 | \-0 |  | Send emails through Gmail API |
+|  | View attachments | \-0.25 | \-0 |  | Display attachments in email detail |
+|  | Download attachments | \-0.25 | \-0 |  | Download attachment files |
+|  | Delete emails | \-0.25 | \-0 |  | Move to trash via Gmail API |
 | **10** | **Advanced features** |  |  |  |  |
-|  | Gmail Push Notifications | 0.25 |  |  | Real-time inbox updates via Gmail watch + Pub/Sub |
-|  | Multi-tab logout sync | 0.25 |  |  | BroadcastChannel for logout sync across tabs |
-|  | Offline caching | 0.25 |  |  | IndexedDB + stale-while-revalidate for emails |
-|  | Keyboard navigation | 0.25 |  |  | Navigate emails with keyboard shortcuts |
-|  | Dockerize your project | 0.25 |  |  | Docker containers for backend, frontend |
-|  | CI/CD | 0.25 |  |  | Automated testing and deployment pipeline |
+|  | Gmail Push Notifications | 0.25 | 0 |  | Real-time inbox updates via Gmail watch + Pub/Sub |
+|  | Multi-tab logout sync | 0.25 | 0.25 |  | BroadcastChannel for logout sync across tabs |
+|  | Offline caching | 0.25 | 0.25 |  | IndexedDB + stale-while-revalidate for emails |
+|  | Keyboard navigation | 0.25 | 0.25 |  | Navigate emails with keyboard shortcuts |
+|  | Dockerize your project | 0.25 | 0 |  | Docker containers for backend, frontend |
+|  | CI/CD | 0.25 | 0 |  | Automated testing and deployment pipeline |
 
 # **GIT HISTORY**
 
