@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState, useEffect } from "react";
 import * as gmailApi from "../../api/gmail";
 import { OfflineIndicator, useOnlineStatus } from "../OfflineIndicator";
 import {
@@ -28,9 +28,20 @@ import { useEmailOperations } from "../../hooks/useEmailOperations";
 import { useInboxShortcuts } from "../../hooks/useInboxShortcuts";
 import { useGmailAuth } from "../../hooks/useGmailAuth";
 
+/* ... */
+
 export default function Inbox() {
   // 1. Hooks initialization and State Management
   const nav = useInboxNavigation();
+  const [pageHistory, setPageHistory] = useState<(string | undefined)[]>([undefined]);
+
+  // Reset pagination when mailbox changes
+  useEffect(() => {
+    setPageHistory([undefined]);
+  }, [nav.selectedMailboxId]);
+
+  const currentPageToken = pageHistory[pageHistory.length - 1];
+
   const search = useInboxSearch(nav.setViewMode);
   const compose = useComposeFlow();
   const gmailAuth = useGmailAuth();
@@ -63,12 +74,13 @@ export default function Inbox() {
   // Fetch emails for selected mailbox
   const {
     emails: gmailEmailsRaw,
+    nextPageToken,
     isLoading: emailsLoading,
     isFetching: emailsFetching,
     isError: emailsError,
     isFromCache: emailsFromCache,
     isStale: emailsStale,
-  } = useGmailEmails(nav.selectedMailboxId, 50, isGmailConnected);
+  } = useGmailEmails(nav.selectedMailboxId, 50, currentPageToken, isGmailConnected);
 
   // Map Gmail emails to UI format
   const emails: Email[] = (gmailEmailsRaw || []).map(
@@ -278,6 +290,21 @@ export default function Inbox() {
                   onDelete={() => ops.deleteSelectedMutation.mutate()}
                   isMarkingAsRead={ops.markSelectedAsReadMutation.isPending}
                   isDeleting={ops.deleteSelectedMutation.isPending}
+
+                  // Pagination props
+                  page={pageHistory.length}
+                  hasNextPage={!!nextPageToken}
+                  hasPreviousPage={pageHistory.length > 1}
+                  onNextPage={() => {
+                    if (nextPageToken) {
+                      setPageHistory(prev => [...prev, nextPageToken]);
+                    }
+                  }}
+                  onPreviousPage={() => {
+                    if (pageHistory.length > 1) {
+                      setPageHistory(prev => prev.slice(0, -1));
+                    }
+                  }}
                 />
               )
             )}

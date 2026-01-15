@@ -102,6 +102,7 @@ export interface UseGmailEmailsResult {
 export function useGmailEmails(
   labelId: string,
   limit: number = 50,
+  pageToken?: string | undefined,
   enabled: boolean = true
 ): UseGmailEmailsResult {
   const queryClient = useQueryClient();
@@ -110,26 +111,39 @@ export function useGmailEmails(
   const [isStale, setIsStale] = useState(false);
 
   const query = useQuery({
-    queryKey: ["gmailEmails", labelId],
+    queryKey: ["gmailEmails", labelId, pageToken], // Include pageToken in query key
     queryFn: async (): Promise<GmailEmailsResponse> => {
-      // Try IndexedDB cache first
-      const cached = await emailCache.getCachedEmails(labelId);
+      // Try IndexedDB cache first (Note: We might want to key cache by pageToken too, or just rely on network for pagination)
+      // For simplicity, let's say we only strictly cache the first page (pageToken undefined) or we key by labelId + pageToken (if cache supports it)
+      // The current emailCache implementation mostly keys by labelId.
+      // If pageToken is present, we might want to skip cache or ensure cache handles it.
+      // Since emailCache seems simple, let's rely on network for paginated pages for now, or check how cacheEmails works.
 
-      if (cached) {
+      // If we are paging, we skip local DB cache check for now to avoid complexity unless offline support for pagination is strict requirement.
+      // Or we can try to fetch from network primarily if pageToken is set.
+
+      // Let's stick to the existing patterns but add pageToken support.
+
+      const cached = !pageToken ? await emailCache.getCachedEmails(labelId) : null;
+
+      if (cached && !pageToken) {
         setIsFromCache(true);
         setIsStale(cached.isStale);
 
         // Background refresh if online and stale
         if (isOnline) {
           gmailApi
-            .getGmailEmails(labelId, limit)
+            .getGmailEmails(labelId, limit, pageToken)
             .then((response) => {
-              emailCache.cacheEmails(
-                labelId,
-                response.emails,
-                response.nextPageToken
-              );
-              queryClient.setQueryData(["gmailEmails", labelId], response);
+              // Only cache first page
+              if (!pageToken) {
+                emailCache.cacheEmails(
+                  labelId,
+                  response.emails,
+                  response.nextPageToken
+                );
+              }
+              queryClient.setQueryData(["gmailEmails", labelId, pageToken], response);
               setIsFromCache(false);
               setIsStale(false);
               emailCache.updateLastSyncTime();
@@ -143,18 +157,23 @@ export function useGmailEmails(
         };
       }
 
-      // No cache - must fetch from network
+      // No cache or paginated request - must fetch from network
       if (!isOnline) {
         throw new Error("No cached emails available and device is offline");
       }
 
-      const response = await gmailApi.getGmailEmails(labelId, limit);
-      await emailCache.cacheEmails(
-        labelId,
-        response.emails,
-        response.nextPageToken
-      );
-      await emailCache.updateLastSyncTime();
+      const response = await gmailApi.getGmailEmails(labelId, limit, pageToken);
+
+      // Only cache first page to avoid overwriting "Inbox" with "Inbox Page 2"
+      if (!pageToken) {
+        await emailCache.cacheEmails(
+          labelId,
+          response.emails,
+          response.nextPageToken
+        );
+        await emailCache.updateLastSyncTime();
+      }
+
       setIsFromCache(false);
       setIsStale(false);
       return response;
