@@ -1,8 +1,20 @@
-import { IsString, IsArray, IsOptional } from 'class-validator';
+import { IsString, IsArray, IsOptional, ValidateNested } from 'class-validator';
+import { Type } from 'class-transformer';
 
 export class GmailAuthDto {
   @IsString()
   code: string;
+}
+
+export class AttachmentDto {
+  @IsString()
+  filename: string;
+
+  @IsString()
+  mimeType: string;
+
+  @IsString()
+  data: string; // base64 encoded
 }
 
 export class SendEmailDto {
@@ -33,6 +45,12 @@ export class SendEmailDto {
   @IsOptional()
   @IsString()
   references?: string;
+
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => AttachmentDto)
+  attachments?: AttachmentDto[];
 }
 
 export class ModifyEmailDto {

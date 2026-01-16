@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState, useEffect } from "react";
 import * as gmailApi from "../../api/gmail";
 import { OfflineIndicator, useOnlineStatus } from "../OfflineIndicator";
 import {
@@ -28,9 +28,20 @@ import { useEmailOperations } from "../../hooks/useEmailOperations";
 import { useInboxShortcuts } from "../../hooks/useInboxShortcuts";
 import { useGmailAuth } from "../../hooks/useGmailAuth";
 
+/* ... */
+
 export default function Inbox() {
   // 1. Hooks initialization and State Management
   const nav = useInboxNavigation();
+  const [pageHistory, setPageHistory] = useState<(string | undefined)[]>([undefined]);
+
+  // Reset pagination when mailbox changes
+  useEffect(() => {
+    setPageHistory([undefined]);
+  }, [nav.selectedMailboxId]);
+
+  const currentPageToken = pageHistory[pageHistory.length - 1];
+
   const search = useInboxSearch(nav.setViewMode);
   const compose = useComposeFlow();
   const gmailAuth = useGmailAuth();
@@ -63,12 +74,13 @@ export default function Inbox() {
   // Fetch emails for selected mailbox
   const {
     emails: gmailEmailsRaw,
+    nextPageToken,
     isLoading: emailsLoading,
     isFetching: emailsFetching,
     isError: emailsError,
     isFromCache: emailsFromCache,
     isStale: emailsStale,
-  } = useGmailEmails(nav.selectedMailboxId, 50, isGmailConnected);
+  } = useGmailEmails(nav.selectedMailboxId, 50, currentPageToken, isGmailConnected);
 
   // Map Gmail emails to UI format
   const emails: Email[] = (gmailEmailsRaw || []).map(
@@ -97,26 +109,25 @@ export default function Inbox() {
     ? gmailApi.mapGmailEmailToEmail(selectedGmailEmail)
     : null;
 
-  // 4. Derived Data (Kanban Filter/Sort)
+  // 4. Derived Data (Filter/Sort for both Kanban and List views)
   const processedEmails = useMemo(() => {
     let result = [...emails];
 
-    if (nav.viewMode === 'kanban') {
-      if (nav.filterUnread) {
-        result = result.filter(e => !e.isRead);
-      }
-      if (nav.filterHasAttachment) {
-        result = result.filter(e => e.hasAttachments);
-      }
-
-      result.sort((a, b) => {
-        const dateA = new Date(a.timestamp || 0).getTime();
-        const dateB = new Date(b.timestamp || 0).getTime();
-        return nav.kanbanSortOrder === 'newest' ? dateB - dateA : dateA - dateB;
-      });
+    if (nav.filterUnread) {
+      result = result.filter(e => !e.isRead);
     }
+    if (nav.filterHasAttachment) {
+      result = result.filter(e => e.hasAttachments);
+    }
+
+    result.sort((a, b) => {
+      const dateA = new Date(a.timestamp || 0).getTime();
+      const dateB = new Date(b.timestamp || 0).getTime();
+      return nav.kanbanSortOrder === 'newest' ? dateB - dateA : dateA - dateB;
+    });
+
     return result;
-  }, [emails, nav.viewMode, nav.filterUnread, nav.filterHasAttachment, nav.kanbanSortOrder]);
+  }, [emails, nav.filterUnread, nav.filterHasAttachment, nav.kanbanSortOrder]);
 
   // 5. Shortcuts
   useInboxShortcuts({
@@ -255,7 +266,7 @@ export default function Inbox() {
                 </div>
               ) : (
                 <EmailListView
-                  emails={emails}
+                  emails={processedEmails}
                   selectedEmailId={selection.selectedEmailId}
                   selectedEmails={selection.selectedEmails}
                   selectedMailboxId={nav.selectedMailboxId}
@@ -278,6 +289,21 @@ export default function Inbox() {
                   onDelete={() => ops.deleteSelectedMutation.mutate()}
                   isMarkingAsRead={ops.markSelectedAsReadMutation.isPending}
                   isDeleting={ops.deleteSelectedMutation.isPending}
+
+                  // Pagination props
+                  page={pageHistory.length}
+                  hasNextPage={!!nextPageToken}
+                  hasPreviousPage={pageHistory.length > 1}
+                  onNextPage={() => {
+                    if (nextPageToken) {
+                      setPageHistory(prev => [...prev, nextPageToken]);
+                    }
+                  }}
+                  onPreviousPage={() => {
+                    if (pageHistory.length > 1) {
+                      setPageHistory(prev => prev.slice(0, -1));
+                    }
+                  }}
                 />
               )
             )}
@@ -328,6 +354,9 @@ export default function Inbox() {
           setSubject={compose.setComposeSubject}
           body={compose.composeBody}
           setBody={compose.setComposeBody}
+          attachments={compose.attachments}
+          onAttachFile={compose.handleAttachFile}
+          onRemoveAttachment={compose.handleRemoveAttachment}
           onClose={() => compose.setShowCompose(false)}
           onSend={compose.handleComposeSubmit}
           sending={compose.sendEmailMutation.isPending}

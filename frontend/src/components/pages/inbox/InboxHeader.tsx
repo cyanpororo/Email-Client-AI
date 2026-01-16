@@ -112,8 +112,8 @@ export function InboxHeader({
                         </div>
                     )}
 
-                    {/* Kanban Filters - Only show on Kanban view */}
-                    {viewMode === 'kanban' && !searchActive && (
+                    {/* Filters & Sort - Show for both views when not searching */}
+                    {!searchActive && (
                         <div className="hidden md:flex items-center gap-2 mr-2 border-l border-gray-300 pl-4 transition-all duration-300 ease-in-out">
                             {/* Sort Dropdown */}
                             <div className="flex items-center gap-1 bg-gray-100 rounded-lg px-2 py-1 border border-gray-200 hover:border-blue-300 transition-colors">

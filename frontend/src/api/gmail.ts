@@ -60,6 +60,11 @@ export type SendEmailRequest = {
     body: string;
     inReplyTo?: string;
     references?: string;
+    attachments?: Array<{
+        filename: string;
+        mimeType: string;
+        data: string; // base64 encoded
+    }>;
 };
 
 // API Functions

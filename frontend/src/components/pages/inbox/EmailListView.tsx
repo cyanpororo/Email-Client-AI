@@ -26,6 +26,11 @@ interface EmailListViewProps {
     onDelete: () => void;
     isMarkingAsRead: boolean;
     isDeleting: boolean;
+    hasNextPage?: boolean;
+    hasPreviousPage?: boolean;
+    onNextPage?: () => void;
+    onPreviousPage?: () => void;
+    page?: number;
 }
 
 export function EmailListView({
@@ -50,11 +55,16 @@ export function EmailListView({
     onDelete,
     isMarkingAsRead,
     isDeleting,
+    hasNextPage,
+    hasPreviousPage,
+    onNextPage,
+    onPreviousPage,
+    page,
 }: EmailListViewProps) {
     const queryClient = useQueryClient();
 
     return (
-        <div className="w-full lg:w-2/5 bg-white border-r border-gray-200 flex flex-col">
+        <div className="w-full lg:w-2/5 bg-white border-r border-gray-200 flex flex-col h-full">
             {/* Action bar */}
             <EmailActionBar
                 selectedCount={selectedEmails.size}
@@ -71,6 +81,11 @@ export function EmailListView({
                 onDelete={onDelete}
                 isMarkingAsRead={isMarkingAsRead}
                 isDeleting={isDeleting}
+                page={page}
+                hasNextPage={hasNextPage}
+                hasPreviousPage={hasPreviousPage}
+                onNextPage={onNextPage}
+                onPreviousPage={onPreviousPage}
             />
 
             {/* Email list */}

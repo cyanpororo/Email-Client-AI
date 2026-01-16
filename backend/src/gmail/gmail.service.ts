@@ -395,20 +395,67 @@ export class GmailService {
         .replace(/>/g, '&gt;')
         .replace(/\n/g, '<br>');
 
-      // Create email message headers
-      const headers = [
-        `To: ${emailDto.to.join(', ')}`,
-        emailDto.cc?.length ? `Cc: ${emailDto.cc.join(', ')}` : null,
-        emailDto.bcc?.length ? `Bcc: ${emailDto.bcc.join(', ')}` : null,
-        `Subject: ${emailDto.subject}`,
-        emailDto.inReplyTo ? `In-Reply-To: ${emailDto.inReplyTo}` : null,
-        emailDto.references ? `References: ${emailDto.references}` : null,
-        'MIME-Version: 1.0',
-        'Content-Type: text/html; charset=utf-8',
-      ].filter((header) => header !== null);
+      let message: string;
 
-      // Combine headers and body with a blank line separator
-      const message = [...headers, '', formattedBody].join('\r\n');
+      // Check if there are attachments
+      if (emailDto.attachments && emailDto.attachments.length > 0) {
+        // Create multipart MIME message with attachments
+        const boundary = `----=_Part_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+
+        const headers = [
+          `To: ${emailDto.to.join(', ')}`,
+          emailDto.cc?.length ? `Cc: ${emailDto.cc.join(', ')}` : null,
+          emailDto.bcc?.length ? `Bcc: ${emailDto.bcc.join(', ')}` : null,
+          `Subject: ${emailDto.subject}`,
+          emailDto.inReplyTo ? `In-Reply-To: ${emailDto.inReplyTo}` : null,
+          emailDto.references ? `References: ${emailDto.references}` : null,
+          'MIME-Version: 1.0',
+          `Content-Type: multipart/mixed; boundary="${boundary}"`,
+        ].filter((header) => header !== null);
+
+        // Build the message parts
+        const messageParts = [
+          ...headers,
+          '',
+          `--${boundary}`,
+          'Content-Type: text/html; charset=utf-8',
+          'Content-Transfer-Encoding: 7bit',
+          '',
+          formattedBody,
+        ];
+
+        // Add each attachment
+        for (const attachment of emailDto.attachments) {
+          messageParts.push(
+            '',
+            `--${boundary}`,
+            `Content-Type: ${attachment.mimeType}; name="${attachment.filename}"`,
+            'Content-Transfer-Encoding: base64',
+            `Content-Disposition: attachment; filename="${attachment.filename}"`,
+            '',
+            attachment.data,
+          );
+        }
+
+        // Close the boundary
+        messageParts.push('', `--${boundary}--`);
+
+        message = messageParts.join('\r\n');
+      } else {
+        // Simple message without attachments
+        const headers = [
+          `To: ${emailDto.to.join(', ')}`,
+          emailDto.cc?.length ? `Cc: ${emailDto.cc.join(', ')}` : null,
+          emailDto.bcc?.length ? `Bcc: ${emailDto.bcc.join(', ')}` : null,
+          `Subject: ${emailDto.subject}`,
+          emailDto.inReplyTo ? `In-Reply-To: ${emailDto.inReplyTo}` : null,
+          emailDto.references ? `References: ${emailDto.references}` : null,
+          'MIME-Version: 1.0',
+          'Content-Type: text/html; charset=utf-8',
+        ].filter((header) => header !== null);
+
+        message = [...headers, '', formattedBody].join('\r\n');
+      }
 
       const encodedMessage = Buffer.from(message)
         .toString('base64')
