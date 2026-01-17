@@ -128,10 +128,17 @@ api.interceptors.response.use(
           processQueue(refreshError)
           clearTokens()
           isRefreshing = false
+          console.warn('Session expired. Redirecting to login...')
           window.location.href = '/login'
           return Promise.reject(refreshError)
         }
       }
+    }
+
+    // Add more context to network errors
+    if (!error.response && error.request) {
+      error.isNetworkError = true
+      error.message = error.message || 'Network error. Please check your internet connection.'
     }
 
     return Promise.reject(error)

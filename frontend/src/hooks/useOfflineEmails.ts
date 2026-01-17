@@ -331,6 +331,7 @@ export function useMarkAsReadMutation(labelId: string) {
       // Refetch to ensure sync
       queryClient.invalidateQueries({ queryKey: ["gmailEmails", labelId] });
       queryClient.invalidateQueries({ queryKey: ["gmailLabels"] });
+      queryClient.invalidateQueries({ queryKey: ["gmailEmail"] });
     },
   });
 }
@@ -380,6 +381,7 @@ export function useMarkAsUnreadMutation(labelId: string) {
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ["gmailEmails", labelId] });
       queryClient.invalidateQueries({ queryKey: ["gmailLabels"] });
+      queryClient.invalidateQueries({ queryKey: ["gmailEmail"] });
     },
   });
 }
@@ -482,6 +484,7 @@ export function useDeleteEmailMutation(labelId: string) {
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ["gmailEmails", labelId] });
       queryClient.invalidateQueries({ queryKey: ["gmailLabels"] });
+      queryClient.invalidateQueries({ queryKey: ["gmailEmail"] });
     },
   });
 }

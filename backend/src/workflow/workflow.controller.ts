@@ -1,4 +1,5 @@
 import { Controller, Get, Body, Param, Put, UseGuards, Request, Post } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { WorkflowService } from './workflow.service';
 import { UpdateWorkflowDto } from './dto/update-workflow.dto';
 import { AuthGuard } from '@nestjs/passport';
@@ -34,6 +35,7 @@ export class WorkflowController {
     }
 
     @Post(':messageId/summary')
+    @Throttle({ default: { limit: 10, ttl: 60000 } }) // 10 AI summary requests per minute (expensive operation)
     async generateSummary(
         @Request() req,
         @Param('messageId') messageId: string,

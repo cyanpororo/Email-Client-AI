@@ -1,7 +1,9 @@
 import { useState, useCallback } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 import * as gmailApi from "../api/gmail";
 import type { Email, ComposeMode } from "../components/pages/inbox/types";
+import { getOperationErrorMessage, formatErrorForLogging } from '../lib/errorHandler';
 
 export function useComposeFlow() {
     const [showCompose, setShowCompose] = useState(false);
@@ -76,18 +78,12 @@ export function useComposeFlow() {
             setShowCompose(false);
             resetComposeForm();
             queryClient.invalidateQueries({ queryKey: ["gmailEmails", "SENT"] });
-            alert("Email sent successfully!");
+            toast.success("Email sent successfully!");
         },
         onError: (error: any) => {
-            console.error("Failed to send email:", error);
-            if (error.response?.data) {
-                console.error("Error details:", error.response.data);
-                alert(
-                    `Failed to send email: ${error.response.data.message || "Unknown error"}`
-                );
-            } else {
-                alert("Failed to send email. Please try again.");
-            }
+            console.error(formatErrorForLogging(error, 'sendEmail'));
+            const errorMessage = getOperationErrorMessage('send-email', error);
+            toast.error(errorMessage);
         },
     });
 

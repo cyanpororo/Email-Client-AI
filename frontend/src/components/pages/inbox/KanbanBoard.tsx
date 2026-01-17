@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { DndContext, DragOverlay, useSensor, useSensors, PointerSensor, TouchSensor, type DragEndEvent, useDroppable } from '@dnd-kit/core';
 import type { Email } from './types';
 import { KanbanCard } from './KanbanCard';
@@ -6,6 +7,7 @@ import { fetchWorkflows, updateWorkflow, generateSummary, type WorkflowState } f
 import { useKanbanColumns } from '../../../hooks/useKanbanColumns';
 import { KanbanSettings } from './KanbanSettings';
 import { getGmailLabels, type GmailLabel } from '../../../api/gmail';
+import { getOperationErrorMessage, formatErrorForLogging } from '../../../lib/errorHandler';
 
 interface KanbanBoardProps {
     emails: Email[];
@@ -27,6 +29,7 @@ function DroppableColumn({ id, children }: { id: string; children: React.ReactNo
 }
 
 export function KanbanBoard({ emails, onEmailClick }: KanbanBoardProps) {
+    const queryClient = useQueryClient();
     const [workflows, setWorkflows] = useState<Record<string, WorkflowState>>({});
     const [activeId, setActiveId] = useState<string | null>(null);
     const [generatingSummaries, setGeneratingSummaries] = useState<Set<string>>(new Set());
@@ -104,8 +107,8 @@ export function KanbanBoard({ emails, onEmailClick }: KanbanBoardProps) {
                     });
                 })
                 .catch(err => {
-                    console.error('Failed to generate summary', err);
-                    const errorMessage = err?.response?.data?.message || err?.message || 'Failed to generate summary';
+                    console.error(formatErrorForLogging(err, 'generateSummary'));
+                    const errorMessage = getOperationErrorMessage('generate-summary', err);
                     setSummaryErrors(prev => ({
                         ...prev,
                         [email.id]: errorMessage
@@ -169,6 +172,13 @@ export function KanbanBoard({ emails, onEmailClick }: KanbanBoardProps) {
                 ...(snoozedUntil !== undefined && { snoozedUntil }),
                 ...(newStatus === 'Snoozed' && { previousStatus: oldStatus })
             });
+            
+            // Invalidate email queries to refetch with updated labels
+            // Use a small delay to allow backend to sync labels with Gmail
+            setTimeout(() => {
+                queryClient.invalidateQueries({ queryKey: ['gmailEmails'] });
+                queryClient.invalidateQueries({ queryKey: ['gmailEmailDetail'] });
+            }, 500);
         } catch (err) {
             console.error("Failed to update status", err);
             // Rollback
@@ -206,8 +216,13 @@ export function KanbanBoard({ emails, onEmailClick }: KanbanBoardProps) {
                 previousStatus: oldStatus,
                 snoozedUntil,
             });
+            
+            // Invalidate queries to refetch with updated labels
+            setTimeout(() => {
+                queryClient.invalidateQueries({ queryKey: ['gmailEmails'] });
+            }, 500);
         } catch (err) {
-            console.error("Failed to snooze email", err);
+            console.error(formatErrorForLogging(err, 'snoozeEmail'));
             // Rollback
             setWorkflows(prev => ({
                 ...prev,

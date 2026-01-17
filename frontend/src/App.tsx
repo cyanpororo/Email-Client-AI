@@ -1,4 +1,5 @@
 import { Navigate, Route, Routes } from "react-router-dom";
+import { Toaster } from "sonner";
 import { AuthProvider } from "./contexts/AuthContext";
 import { Layout } from "./components/Layout";
 import { ProtectedRoute } from "./components/ProtectedRoute";
@@ -10,10 +11,12 @@ import Home from "./components/pages/Home";
 import Dashboard from "./components/pages/Dashboard";
 import Inbox from "./components/pages/Inbox";
 import AdminDashboard from "./components/pages/AdminDashboard";
+import NotFoundPage from "./components/pages/NotFoundPage";
 
 function App() {
   return (
     <AuthProvider>
+      <Toaster position="top-right" richColors />
       <Layout>
         <Routes>
           <Route path="/" element={<Navigate to="/home" replace />} />
@@ -59,6 +62,8 @@ function App() {
               </RoleProtectedRoute>
             }
           />
+          {/* Catch-all for 404 */}
+          <Route path="*" element={<NotFoundPage />} />
         </Routes>
       </Layout>
     </AuthProvider>

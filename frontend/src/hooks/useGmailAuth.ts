@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 import * as gmailApi from "../api/gmail";
 
 export function useGmailAuth() {
@@ -13,12 +14,12 @@ export function useGmailAuth() {
 
         if (gmailStatus === "connected") {
             // Gmail connected successfully
-            alert("Gmail connected successfully!");
+            toast.success("Gmail connected successfully!");
             // Remove query params
             window.history.replaceState({}, "", "/inbox");
             queryClient.invalidateQueries({ queryKey: ["gmailLabels"] });
         } else if (gmailStatus === "error") {
-            alert(`Failed to connect Gmail: ${errorMessage || "Unknown error"}`);
+            toast.error(`Failed to connect Gmail: ${errorMessage || "Unknown error"}`);
             // Remove query params
             window.history.replaceState({}, "", "/inbox");
         }
@@ -30,7 +31,7 @@ export function useGmailAuth() {
             window.location.href = authUrl;
         } catch (error) {
             console.error("Failed to get Gmail auth URL:", error);
-            alert("Failed to connect Gmail. Please try again.");
+            toast.error("Failed to connect Gmail. Please try again.");
         }
     };
 

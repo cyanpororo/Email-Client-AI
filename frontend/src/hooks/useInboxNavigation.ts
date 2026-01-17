@@ -19,6 +19,18 @@ export function useInboxNavigation() {
     const [filterUnread, setFilterUnread] = useState(false);
     const [filterHasAttachment, setFilterHasAttachment] = useState(false);
 
+    // Handle default route redirect and restore last view from localStorage
+    useEffect(() => {
+        if (location.pathname === '/inbox' || location.pathname === '/inbox/') {
+            const savedView = localStorage.getItem('preferredInboxView') || 'list';
+            navigate(`/inbox/${savedView}`, { replace: true });
+        } else if (location.pathname.includes('/inbox/')) {
+            // Save current view to localStorage whenever we're on a valid inbox route
+            const currentView = location.pathname.includes('/kanban') ? 'kanban' : 'list';
+            localStorage.setItem('preferredInboxView', currentView);
+        }
+    }, [location.pathname, navigate]);
+
     // Responsive handling
     useEffect(() => {
         const handleResize = () => {
@@ -41,6 +53,7 @@ export function useInboxNavigation() {
 
     // Function to change view mode by navigating to the appropriate route
     const setViewMode = useCallback((mode: 'list' | 'kanban') => {
+        localStorage.setItem('preferredInboxView', mode);
         navigate(`/inbox/${mode}`);
     }, [navigate]);
 

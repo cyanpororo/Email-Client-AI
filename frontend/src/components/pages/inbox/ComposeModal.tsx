@@ -1,4 +1,5 @@
 import type { Dispatch, SetStateAction, FormEvent } from "react";
+import { useEffect } from "react";
 import { Card } from "../../ui/card";
 import { Button } from "../../ui/button";
 import type { ComposeMode } from "./types";
@@ -38,6 +39,19 @@ export function ComposeModal({
     onClose,
     onSend,
 }: ComposeModalProps) {
+    // Handle ESC key to close modal
+    useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.key === 'Escape' && !sending) {
+                e.preventDefault();
+                onClose();
+            }
+        };
+
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [onClose, sending]);
+
     const getTitle = () => {
         switch (mode) {
             case "reply":
