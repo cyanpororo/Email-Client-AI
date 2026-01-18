@@ -31,21 +31,22 @@ function DroppableColumn({ id, children }: { id: string; children: React.ReactNo
 export function KanbanBoard({ emails, onEmailClick }: KanbanBoardProps) {
     const queryClient = useQueryClient();
     const [workflows, setWorkflows] = useState<Record<string, WorkflowState>>({});
+    const [fetchedWorkflowIds, setFetchedWorkflowIds] = useState<Set<string>>(new Set());
     const [activeId, setActiveId] = useState<string | null>(null);
     const [generatingSummaries, setGeneratingSummaries] = useState<Set<string>>(new Set());
     const [summaryErrors, setSummaryErrors] = useState<Record<string, string>>({});
     const requestedSummariesRef = useRef<Set<string>>(new Set());
     const [showSettings, setShowSettings] = useState(false);
     const [gmailLabels, setGmailLabels] = useState<GmailLabel[]>([]);
-    
+
     // Use dynamic columns from hook
-    const { 
-        columns, 
+    const {
+        columns,
         isLoading: columnsLoading,
         error: columnsError,
-        createColumn, 
-        updateColumn, 
-        deleteColumn 
+        createColumn,
+        updateColumn,
+        deleteColumn
     } = useKanbanColumns();
 
     const loadWorkflows = useCallback(() => {
@@ -54,7 +55,8 @@ export function KanbanBoard({ emails, onEmailClick }: KanbanBoardProps) {
         fetchWorkflows(ids).then(data => {
             const map: Record<string, WorkflowState> = {};
             data.forEach(w => map[w.gmail_message_id] = w);
-            setWorkflows(map);
+            setWorkflows(prev => ({ ...prev, ...map }));
+            setFetchedWorkflowIds(prev => new Set([...prev, ...ids]));
         }).catch(err => console.error("Failed to fetch workflows", err));
     }, [emails]);
 
@@ -75,6 +77,7 @@ export function KanbanBoard({ emails, onEmailClick }: KanbanBoardProps) {
     // Auto-generate summaries for emails missing one
     useEffect(() => {
         const missing = emails.filter(email =>
+            fetchedWorkflowIds.has(email.id) &&
             !workflows[email.id]?.summary &&
             !requestedSummariesRef.current.has(email.id)
         );
@@ -89,7 +92,7 @@ export function KanbanBoard({ emails, onEmailClick }: KanbanBoardProps) {
                 delete next[email.id];
                 return next;
             });
-            
+
             generateSummary(email.id)
                 .then(data => {
                     setWorkflows(prev => ({
@@ -172,7 +175,7 @@ export function KanbanBoard({ emails, onEmailClick }: KanbanBoardProps) {
                 ...(snoozedUntil !== undefined && { snoozedUntil }),
                 ...(newStatus === 'Snoozed' && { previousStatus: oldStatus })
             });
-            
+
             // Invalidate email queries to refetch with updated labels
             // Use a small delay to allow backend to sync labels with Gmail
             setTimeout(() => {
@@ -216,7 +219,7 @@ export function KanbanBoard({ emails, onEmailClick }: KanbanBoardProps) {
                 previousStatus: oldStatus,
                 snoozedUntil,
             });
-            
+
             // Invalidate queries to refetch with updated labels
             setTimeout(() => {
                 queryClient.invalidateQueries({ queryKey: ['gmailEmails'] });
