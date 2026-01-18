@@ -197,7 +197,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
       setUser(null);
       setError(null);
       queryClient.clear();
-      
+
       // Clear all storage
       localStorage.clear();
       sessionStorage.clear();
@@ -209,7 +209,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
           dbs.map((db) => {
             if (db.name) {
               return new Promise<void>((resolve, reject) => {
-                const request = window.indexedDB.deleteDatabase(db.name);
+                const request = window.indexedDB.deleteDatabase(db.name!);
                 request.onsuccess = () => resolve();
                 request.onerror = () => reject(request.error);
                 request.onblocked = () => {
