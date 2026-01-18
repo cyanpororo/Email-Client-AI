@@ -14,6 +14,7 @@ import {
   clearTokens,
   setAccessToken,
 } from "../api/client";
+import { getOperationErrorMessage, formatErrorForLogging } from "../lib/errorHandler";
 
 type User = {
   id: string;
@@ -157,12 +158,13 @@ export function AuthProvider({ children }: PropsWithChildren) {
       if (data.user.role === 'admin') {
         navigate("/admin");
       } else {
-        navigate("/inbox/list");
+        // Navigate to /inbox which will redirect to saved preference
+        navigate("/inbox");
       }
     },
     onError: (err: any) => {
-      const message =
-        err?.response?.data?.message || err.message || "Login failed";
+      console.error(formatErrorForLogging(err, 'login'));
+      const message = getOperationErrorMessage('login', err);
       setError(message);
     },
   });
@@ -177,23 +179,52 @@ export function AuthProvider({ children }: PropsWithChildren) {
       if (data.user.role === 'admin') {
         navigate("/admin");
       } else {
-        navigate("/inbox/list");
+        // Navigate to /inbox which will redirect to saved preference
+        navigate("/inbox");
       }
     },
     onError: (err: any) => {
-      const message =
-        err?.response?.data?.message || err.message || "Google login failed";
+      console.error(formatErrorForLogging(err, 'googleLogin'));
+      const message = getOperationErrorMessage('login', err);
       setError(message);
     },
   });
 
   const logoutMutation = useMutation({
     mutationFn: authApi.logout,
-    onSuccess: () => {
+    onSuccess: async () => {
       clearRefreshTimer();
       setUser(null);
       setError(null);
       queryClient.clear();
+      
+      // Clear all storage
+      localStorage.clear();
+      sessionStorage.clear();
+
+      // Clear IndexedDB
+      try {
+        const dbs = await window.indexedDB.databases();
+        await Promise.all(
+          dbs.map((db) => {
+            if (db.name) {
+              return new Promise<void>((resolve, reject) => {
+                const request = window.indexedDB.deleteDatabase(db.name);
+                request.onsuccess = () => resolve();
+                request.onerror = () => reject(request.error);
+                request.onblocked = () => {
+                  console.warn(`Database ${db.name} is blocked`);
+                  resolve(); // Continue even if blocked
+                };
+              });
+            }
+            return Promise.resolve();
+          })
+        );
+      } catch (error) {
+        console.error("Failed to clear IndexedDB:", error);
+      }
+
       navigate("/login"); // redirect to login after logout
     },
   });

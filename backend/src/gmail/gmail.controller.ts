@@ -11,6 +11,7 @@ import {
     HttpStatus,
 } from '@nestjs/common';
 import type { Response } from 'express';
+import { Throttle } from '@nestjs/throttler';
 import { GmailService } from './gmail.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { GmailAuthDto, SendEmailDto, ModifyEmailDto } from './dto/gmail.dto';
@@ -122,6 +123,7 @@ export class GmailController {
      */
     @Post('emails/send')
     @UseGuards(JwtAuthGuard)
+    @Throttle({ default: { limit: 30, ttl: 60000 } }) // 30 emails per minute
     async sendEmail(@Request() req, @Body() sendEmailDto: SendEmailDto) {
         return this.gmailService.sendEmail(req.user.userId, sendEmailDto);
     }
@@ -131,6 +133,7 @@ export class GmailController {
      */
     @Post('emails/:id/reply')
     @UseGuards(JwtAuthGuard)
+    @Throttle({ default: { limit: 30, ttl: 60000 } }) // 30 replies per minute
     async replyToEmail(
         @Request() req,
         @Param('id') emailId: string,
@@ -261,6 +264,7 @@ export class GmailController {
      */
     @Get('search/semantic')
     @UseGuards(JwtAuthGuard)
+    @Throttle({ default: { limit: 20, ttl: 60000 } }) // 20 semantic searches per minute (more expensive)
     async semanticSearchEmails(
         @Request() req,
         @Query('q') query: string,

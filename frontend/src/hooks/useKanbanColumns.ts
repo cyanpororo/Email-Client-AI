@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import * as gmailApi from '../api/gmail';
+import { getOperationErrorMessage, formatErrorForLogging } from '../lib/errorHandler';
 
 export function useKanbanColumns() {
     const [columns, setColumns] = useState<gmailApi.KanbanColumn[]>([]);
@@ -14,8 +15,8 @@ export function useKanbanColumns() {
             const data = await gmailApi.getKanbanColumns();
             setColumns(data);
         } catch (err: any) {
-            console.error('Failed to fetch columns:', err);
-            setError(err?.response?.data?.message || 'Failed to load columns');
+            console.error(formatErrorForLogging(err, 'fetchColumns'));
+            setError(getOperationErrorMessage('load-labels', err));
         } finally {
             setIsLoading(false);
         }
@@ -33,8 +34,8 @@ export function useKanbanColumns() {
             setColumns(prev => [...prev, newColumn].sort((a, b) => a.position - b.position));
             return newColumn;
         } catch (err: any) {
-            console.error('Failed to create column:', err);
-            throw new Error(err?.response?.data?.message || 'Failed to create column');
+            console.error(formatErrorForLogging(err, 'createColumn'));
+            throw new Error(getOperationErrorMessage('create-column', err));
         }
     }, []);
 
@@ -45,8 +46,8 @@ export function useKanbanColumns() {
             setColumns(prev => prev.map(col => col.id === columnId ? updatedColumn : col));
             return updatedColumn;
         } catch (err: any) {
-            console.error('Failed to update column:', err);
-            throw new Error(err?.response?.data?.message || 'Failed to update column');
+            console.error(formatErrorForLogging(err, 'updateColumn'));
+            throw new Error(getOperationErrorMessage('update-column', err));
         }
     }, []);
 

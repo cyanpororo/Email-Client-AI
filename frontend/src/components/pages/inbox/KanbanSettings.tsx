@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '../../ui/button';
 import type { KanbanColumn } from '../../../api/gmail';
 
@@ -28,6 +28,22 @@ export function KanbanSettings({
     const [editLabel, setEditLabel] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+
+    // Handle ESC key to close modal
+    useEffect(() => {
+        if (!isOpen) return;
+
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.key === 'Escape' && !deleteConfirmId) {
+                e.preventDefault();
+                onClose();
+            }
+        };
+
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [isOpen, onClose, deleteConfirmId]);
 
     if (!isOpen) return null;
 
@@ -77,14 +93,11 @@ export function KanbanSettings({
     };
 
     const handleDelete = async (columnId: string) => {
-        if (!confirm('Are you sure you want to delete this column? Emails will be moved to Inbox.')) {
-            return;
-        }
-
         try {
             setIsSubmitting(true);
             setError(null);
             await onDeleteColumn(columnId);
+            setDeleteConfirmId(null);
         } catch (err: any) {
             setError(err.message || 'Failed to delete column');
         } finally {
@@ -281,14 +294,36 @@ export function KanbanSettings({
                                                     Edit
                                                 </Button>
                                                 {!column.is_default && (
-                                                    <Button
-                                                        onClick={() => handleDelete(column.id)}
-                                                        disabled={isSubmitting}
-                                                        className="bg-red-600 hover:bg-red-700 text-white"
-                                                        size="sm"
-                                                    >
-                                                        Delete
-                                                    </Button>
+                                                    deleteConfirmId === column.id ? (
+                                                        <div className="flex gap-1">
+                                                            <Button
+                                                                onClick={() => handleDelete(column.id)}
+                                                                disabled={isSubmitting}
+                                                                className="bg-red-600 hover:bg-red-700 text-white text-xs"
+                                                                size="sm"
+                                                            >
+                                                                Confirm
+                                                            </Button>
+                                                            <Button
+                                                                onClick={() => setDeleteConfirmId(null)}
+                                                                disabled={isSubmitting}
+                                                                variant="outline"
+                                                                size="sm"
+                                                                className="text-xs"
+                                                            >
+                                                                Cancel
+                                                            </Button>
+                                                        </div>
+                                                    ) : (
+                                                        <Button
+                                                            onClick={() => setDeleteConfirmId(column.id)}
+                                                            disabled={isSubmitting}
+                                                            className="bg-red-600 hover:bg-red-700 text-white"
+                                                            size="sm"
+                                                        >
+                                                            Delete
+                                                        </Button>
+                                                    )
                                                 )}
                                             </div>
                                         </div>

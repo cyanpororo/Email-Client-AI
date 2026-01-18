@@ -24,10 +24,11 @@ export function EmailListItem({
             className={`border-b border-gray-100 p-2.5 md:p-4 cursor-pointer transition-colors ${isSelected
                 ? "bg-blue-50 border-l-4 border-l-blue-600"
                 : "hover:bg-gray-50"
-                } ${!email.isRead ? "bg-blue-50/30" : ""}`}
+                } ${!email.isRead ? "bg-blue-50 border-l-4 border-l-blue-500 font-semibold" : ""}`}
             onClick={() => onEmailClick(email)}
         >
             <div className="flex items-start gap-2 md:gap-3">
+                {!email.isRead && <div className="w-2 h-2 bg-blue-500 rounded-full mt-2 flex-shrink-0" aria-hidden="true" />}
                 <input
                     type="checkbox"
                     checked={isChecked}
@@ -51,7 +52,7 @@ export function EmailListItem({
                 <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between mb-0.5 md:mb-1">
                         <span
-                            className={`text-sm md:text-base font-medium truncate ${!email.isRead ? "text-gray-900" : "text-gray-700"
+                            className={`text-sm md:text-base truncate ${!email.isRead ? "font-bold text-gray-900" : "font-medium text-gray-700"
                                 }`}
                         >
                             {email.from.name || email.from.email}
@@ -62,7 +63,7 @@ export function EmailListItem({
                     </div>
                     <div
                         className={`text-xs md:text-sm truncate mb-0.5 md:mb-1 ${!email.isRead
-                            ? "font-semibold text-gray-900"
+                            ? "font-bold text-gray-900"
                             : "text-gray-600"
                             }`}
                     >

@@ -148,6 +148,20 @@ export class KanbanColumnService {
             throw new Error('Failed to update column');
         }
 
+        // If the column name changed, update all workflows with the old status to the new status
+        if (dto.name && dto.name !== existing.name) {
+            const { error: workflowError } = await supabase
+                .from('email_workflows')
+                .update({ status: dto.name })
+                .eq('user_id', userId)
+                .eq('status', existing.name);
+
+            if (workflowError) {
+                console.error('[KanbanColumn] Error updating workflow statuses:', workflowError);
+                // Don't throw - column was updated successfully, just log the error
+            }
+        }
+
         return data as KanbanColumn;
     }
 

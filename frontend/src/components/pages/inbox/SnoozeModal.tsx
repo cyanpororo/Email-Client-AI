@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { toast } from 'sonner';
 import { Button } from '../../ui/button';
 
 interface SnoozeModalProps {
@@ -43,6 +44,21 @@ export function SnoozeModal({ isOpen, onClose, onConfirm, currentSnoozeUntil }: 
         return toLocalISOString(d);
     });
 
+    // Handle ESC key to close modal
+    useEffect(() => {
+        if (!isOpen) return;
+
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.key === 'Escape') {
+                e.preventDefault();
+                onClose();
+            }
+        };
+
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [isOpen, onClose]);
+
     if (!isOpen) return null;
 
     const handlePresetClick = (preset: typeof PRESET_OPTIONS[0]) => {
@@ -60,11 +76,11 @@ export function SnoozeModal({ isOpen, onClose, onConfirm, currentSnoozeUntil }: 
     const handleConfirm = () => {
         const date = new Date(customDateTime);
         if (isNaN(date.getTime())) {
-            alert('Invalid date/time. Please select a valid date and time.');
+            toast.error('Invalid date/time. Please select a valid date and time.');
             return;
         }
         if (date.getTime() <= Date.now()) {
-            alert('Please select a future date and time.');
+            toast.error('Please select a future date and time.');
             return;
         }
         onConfirm(date.toISOString());

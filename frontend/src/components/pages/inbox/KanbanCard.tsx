@@ -16,6 +16,7 @@ interface KanbanCardProps {
 
 export function KanbanCard({ email, workflow, onClick, onSnooze, isGeneratingSummary, summaryError }: KanbanCardProps) {
     const [showSnoozeModal, setShowSnoozeModal] = useState(false);
+    const [isExpanded, setIsExpanded] = useState(false);
     const { attributes, listeners, setNodeRef, transform } = useDraggable({
         id: email.id,
         data: { email, workflow },
@@ -43,13 +44,18 @@ export function KanbanCard({ email, workflow, onClick, onSnooze, isGeneratingSum
             style={style}
             {...listeners}
             {...attributes}
-            className="bg-white p-3 rounded-lg shadow-sm border border-gray-200 mb-3 cursor-grab active:cursor-grabbing hover:shadow-md transition-shadow group relative"
+            className={`bg-white p-3 rounded-lg shadow-sm border mb-3 cursor-grab active:cursor-grabbing hover:shadow-md transition-shadow group relative ${
+                !email.isRead ? 'border-blue-400 shadow-blue-100' : 'border-gray-200'
+            }`}
             onClick={() => onClick(email)}
         >
             <div className="flex justify-between items-start mb-1.5">
-                <span className="font-semibold text-sm text-gray-900 truncate pr-2 flex-1">
-                    {email.from.name || email.from.email}
-                </span>
+                <div className="flex items-center gap-2 flex-1">
+                    {!email.isRead && <div className="w-2 h-2 bg-blue-500 rounded-full flex-shrink-0 mt-1" aria-hidden="true" />}
+                    <span className={`text-sm text-gray-900 truncate pr-2 flex-1 ${!email.isRead ? 'font-bold' : 'font-semibold'}`}>
+                        {email.from.name || email.from.email}
+                    </span>
+                </div>
                 <div className="flex items-center gap-2">
                     <span className="text-xs text-gray-400 whitespace-nowrap">
                         {new Date(email.timestamp).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
@@ -64,10 +70,10 @@ export function KanbanCard({ email, workflow, onClick, onSnooze, isGeneratingSum
                     )}
                 </div>
             </div>
-            <div className="font-medium text-sm text-gray-800 mb-1.5 leading-tight line-clamp-2">
+            <div className={`text-sm text-gray-800 mb-1.5 leading-tight line-clamp-2 ${!email.isRead ? 'font-bold' : 'font-medium'}`}>
                 {email.subject}
             </div>
-            <div className="text-xs text-gray-500 line-clamp-3 mb-2">
+            <div className="text-xs text-gray-500 mb-2">
                 {isGeneratingSummary ? (
                     <div className="flex items-center gap-2 text-gray-400">
                         <div className="animate-spin h-3 w-3 border-2 border-gray-300 border-t-gray-600 rounded-full"></div>
@@ -78,13 +84,29 @@ export function KanbanCard({ email, workflow, onClick, onSnooze, isGeneratingSum
                         ⚠️ {summaryError}
                     </div>
                 ) : (
-                    workflow?.summary || email.preview
+                    <div className={isExpanded ? '' : 'line-clamp-3'}>
+                        {workflow?.summary || email.preview}
+                    </div>
                 )}
             </div>
 
+            {/* AI Summary label with expand/collapse */}
             {workflow?.summary && !isGeneratingSummary && !summaryError && (
-                <div className="mt-2 pt-2 border-t border-gray-100 text-xs text-indigo-600 flex items-center font-medium">
-                    <span className="mr-1">✨</span> AI Summary
+                <div className="mt-2 pt-2 border-t border-gray-100">
+                    <button
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            setIsExpanded(!isExpanded);
+                        }}
+                        className="text-xs text-indigo-600 flex items-center font-medium hover:text-indigo-800 transition-colors w-full justify-between"
+                    >
+                        <span className="flex items-center">
+                            <span className="mr-1">✨</span> AI Summary
+                        </span>
+                        <span className="text-xs text-gray-400">
+                            {isExpanded ? '▲ Less' : '▼ More'}
+                        </span>
+                    </button>
                 </div>
             )}
 
