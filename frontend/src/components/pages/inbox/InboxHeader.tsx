@@ -51,60 +51,87 @@ export function InboxHeader({
     const suggestionHook = useSearchSuggestions(searchQuery);
 
     return (
-        <div className="bg-white border-b border-gray-200 px-3 md:px-6 py-3 md:py-4">
-            <div className="flex items-center justify-between">
-                {isMobileView && mobileView !== "list" ? (
-                    <div className="flex items-center gap-1">
-                        <Button
-                            variant="ghost"
-                            onClick={() => {
-                                if (mobileView === "detail") {
-                                    setMobileView("list");
-                                } else if (mobileView === "folders") {
-                                    setMobileView("list");
-                                }
-                            }}
-                            aria-label="Back"
-                            className="p-1.5 h-8"
-                        >
-                            ← Back
-                        </Button>
-                        <h1 className="text-lg md:text-xl font-bold text-gray-900 truncate">
-                            {mobileView === "detail" && selectedEmail
-                                ? "Email"
-                                : mobileView === "folders"
-                                    ? "Folders"
-                                    : "Inbox"}
-                        </h1>
-                    </div>
-                ) : (
-                    <>
-                        {isMobileView && (
-                            <Button
-                                variant="ghost"
-                                onClick={() => setMobileView("folders")}
-                                aria-label="Show folders"
-                                className="p-1.5 h-8 mr-1"
-                            >
-                                ☰
-                            </Button>
+        <div className="bg-white border-b border-gray-200 px-3 md:px-4 lg:px-6 py-3 md:py-4">
+            <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-3">
+                {/* Title and View Mode Toggle */}
+                <div className="flex items-center justify-between lg:justify-start w-full lg:w-auto gap-2">
+                    {/* Title Section */}
+                    <div className="flex items-center gap-2 min-w-0">
+                        {isMobileView && mobileView !== "list" ? (
+                            <div className="flex items-center gap-1">
+                                <Button
+                                    variant="ghost"
+                                    onClick={() => {
+                                        if (mobileView === "detail") {
+                                            setMobileView("list");
+                                        } else if (mobileView === "folders") {
+                                            setMobileView("list");
+                                        }
+                                    }}
+                                    aria-label="Back"
+                                    className="p-1.5 h-8"
+                                >
+                                    ← Back
+                                </Button>
+                                <h1 className="text-lg md:text-xl font-bold text-gray-900 truncate">
+                                    {mobileView === "detail" && selectedEmail
+                                        ? "Email"
+                                        : mobileView === "folders"
+                                            ? "Folders"
+                                            : "Inbox"}
+                                </h1>
+                            </div>
+                        ) : (
+                            <>
+                                {isMobileView && (
+                                    <Button
+                                        variant="ghost"
+                                        onClick={() => setMobileView("folders")}
+                                        aria-label="Show folders"
+                                        className="p-1.5 h-8"
+                                    >
+                                        ☰
+                                    </Button>
+                                )}
+                                <h1 className="text-base md:text-xl lg:text-2xl font-bold text-gray-900 whitespace-nowrap">
+                                    Gmail Inbox
+                                </h1>
+                            </>
                         )}
-                        <h1 className="text-lg md:text-2xl font-bold text-gray-900">
-                            Gmail Inbox
-                        </h1>
-                    </>
-                )}
-                <div className="flex items-center gap-4">
+                    </div>
+                    
+                    {/* View Mode Toggle - Show on small/medium screens */}
                     {!searchActive && (
-                        <div className="flex bg-gray-100 rounded-lg p-1 border border-gray-200 mr-2">
+                        <div className="flex lg:hidden bg-gray-100 rounded-lg p-1 border border-gray-200 shrink-0">
                             <button
-                                className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${viewMode === 'list' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-900'}`}
+                                className={`px-2 md:px-3 py-1 md:py-1.5 rounded-md text-xs md:text-sm font-medium transition-colors whitespace-nowrap ${viewMode === 'list' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-900'}`}
                                 onClick={() => setViewMode('list')}
                             >
                                 List
                             </button>
                             <button
-                                className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${viewMode === 'kanban' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-900'}`}
+                                className={`px-2 md:px-3 py-1 md:py-1.5 rounded-md text-xs md:text-sm font-medium transition-colors whitespace-nowrap ${viewMode === 'kanban' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-900'}`}
+                                onClick={() => setViewMode('kanban')}
+                            >
+                                Kanban
+                            </button>
+                        </div>
+                    )}
+                </div>
+
+                {/* Controls Section - All controls in one row on large screens */}
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 lg:gap-3 w-full lg:w-auto">
+                    {/* View Mode Toggle - Show on large screens */}
+                    {!searchActive && (
+                        <div className="hidden lg:flex bg-gray-100 rounded-lg p-1 border border-gray-200 shrink-0">
+                            <button
+                                className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors whitespace-nowrap ${viewMode === 'list' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-900'}`}
+                                onClick={() => setViewMode('list')}
+                            >
+                                List
+                            </button>
+                            <button
+                                className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors whitespace-nowrap ${viewMode === 'kanban' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-900'}`}
                                 onClick={() => setViewMode('kanban')}
                             >
                                 Kanban
@@ -112,27 +139,27 @@ export function InboxHeader({
                         </div>
                     )}
 
-                    {/* Filters & Sort - Show for both views when not searching */}
+                    {/* Filters & Sort - Show when not searching */}
                     {!searchActive && (
-                        <div className="hidden md:flex items-center gap-2 mr-2 border-l border-gray-300 pl-4 transition-all duration-300 ease-in-out">
+                        <div className="flex items-center gap-2 overflow-x-auto pb-1 sm:pb-0 shrink-0">
                             {/* Sort Dropdown */}
-                            <div className="flex items-center gap-1 bg-gray-100 rounded-lg px-2 py-1 border border-gray-200 hover:border-blue-300 transition-colors">
+                            <div className="flex items-center gap-1 bg-gray-100 rounded-lg px-2 py-1.5 border border-gray-200 hover:border-blue-300 transition-colors shrink-0">
                                 <span className="text-xs text-gray-500 font-medium whitespace-nowrap">Sort:</span>
                                 <select
                                     value={kanbanSortOrder}
                                     onChange={(e) => setKanbanSortOrder(e.target.value as 'newest' | 'oldest')}
-                                    className="bg-transparent text-sm font-medium text-gray-700 focus:outline-none cursor-pointer pr-1"
+                                    className="bg-transparent text-xs md:text-sm font-medium text-gray-700 focus:outline-none cursor-pointer pr-1"
                                 >
-                                    <option value="newest">Newest First</option>
-                                    <option value="oldest">Oldest First</option>
+                                    <option value="newest">Newest</option>
+                                    <option value="oldest">Oldest</option>
                                 </select>
                             </div>
 
                             {/* Filter Buttons */}
-                            <div className="flex gap-2">
+                            <div className="flex gap-2 shrink-0">
                                 <button
                                     onClick={() => setFilterUnread(!filterUnread)}
-                                    className={`px-3 py-1 rounded-lg text-sm font-medium transition-all duration-200 border flex items-center gap-1.5 ${filterUnread
+                                    className={`px-2 md:px-3 py-1.5 rounded-lg text-xs md:text-sm font-medium transition-all duration-200 border flex items-center gap-1.5 whitespace-nowrap ${filterUnread
                                         ? 'bg-blue-100 text-blue-700 border-blue-200 shadow-sm'
                                         : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50 hover:border-gray-300'
                                         }`}
@@ -142,13 +169,14 @@ export function InboxHeader({
                                 </button>
                                 <button
                                     onClick={() => setFilterHasAttachment(!filterHasAttachment)}
-                                    className={`px-3 py-1 rounded-lg text-sm font-medium transition-all duration-200 border flex items-center gap-1.5 ${filterHasAttachment
+                                    className={`px-2 md:px-3 py-1.5 rounded-lg text-xs md:text-sm font-medium transition-all duration-200 border flex items-center gap-1.5 whitespace-nowrap ${filterHasAttachment
                                         ? 'bg-blue-100 text-blue-700 border-blue-200 shadow-sm'
                                         : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50 hover:border-gray-300'
                                         }`}
                                 >
                                     <span>📎</span>
-                                    Attachments
+                                    <span className="hidden sm:inline">Attachments</span>
+                                    <span className="sm:hidden">Files</span>
                                 </button>
                             </div>
                         </div>
@@ -168,13 +196,13 @@ export function InboxHeader({
                             } else {
                                 handleSearchSubmit();
                             }
-                        }} className="flex items-center gap-2">
+                        }} className="flex items-center gap-1.5 md:gap-2 shrink-0">
                             {/* Search Type Dropdown */}
-                            <div className="flex items-center gap-1 bg-gray-100 rounded-lg px-2 py-2 border border-gray-200">
+                            <div className="flex items-center gap-1 bg-gray-100 rounded-lg px-2 py-1.5 border border-gray-200 shrink-0">
                                 <select
                                     value={searchType}
                                     onChange={(e) => setSearchType(e.target.value as SearchType)}
-                                    className="bg-transparent text-sm font-medium text-gray-700 focus:outline-none cursor-pointer"
+                                    className="bg-transparent text-xs md:text-sm font-medium text-gray-700 focus:outline-none cursor-pointer"
                                 >
                                     <option value="fuzzy">🔍 Fuzzy</option>
                                     <option value="semantic">🧠 Semantic</option>
@@ -182,10 +210,10 @@ export function InboxHeader({
                             </div>
 
                             {/* Search Input with Auto-Suggestions */}
-                            <div className="relative">
+                            <div className="relative flex-1 sm:flex-initial min-w-0">
                                 <input
                                     type="text"
-                                    placeholder="Search emails..."
+                                    placeholder="Search..."
                                     value={searchQuery}
                                     onChange={(e) => {
                                         setSearchQuery(e.target.value);
@@ -203,9 +231,9 @@ export function InboxHeader({
                                             // This will be handled by the hook
                                         }
                                     }}
-                                    className="w-full lg:w-64 px-4 py-2 pl-10 pr-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                    className="w-full sm:w-40 md:w-48 lg:w-56 xl:w-64 px-3 md:px-4 py-1.5 pl-8 md:pl-10 pr-2 md:pr-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
                                 />
-                                <span className="absolute left-3 top-2.5 text-gray-400">🔍</span>
+                                <span className="absolute left-2 md:left-3 top-2 text-gray-400 text-sm">🔍</span>
 
                                 {/* Suggestions Dropdown */}
                                 {suggestionHook.showSuggestions && (
@@ -225,10 +253,10 @@ export function InboxHeader({
 
                             {/* Search/Clear Buttons */}
                             {searchQuery ? (
-                                <div className="flex gap-2">
+                                <div className="flex gap-1.5 shrink-0">
                                     <Button
                                         type="submit"
-                                        className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2"
+                                        className="bg-blue-600 hover:bg-blue-700 text-white px-2 sm:px-3 md:px-4 py-1.5 text-xs md:text-sm whitespace-nowrap"
                                     >
                                         Search
                                     </Button>
@@ -236,7 +264,7 @@ export function InboxHeader({
                                         type="button"
                                         variant="outline"
                                         onClick={handleClearSearch}
-                                        className="px-4 py-2"
+                                        className="px-2 sm:px-3 md:px-4 py-1.5 text-xs md:text-sm whitespace-nowrap"
                                     >
                                         Clear
                                     </Button>
@@ -244,7 +272,7 @@ export function InboxHeader({
                             ) : (
                                 <Button
                                     type="submit"
-                                    className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2"
+                                    className="bg-blue-600 hover:bg-blue-700 text-white px-2 sm:px-3 md:px-4 py-1.5 text-xs md:text-sm shrink-0 whitespace-nowrap"
                                     disabled
                                 >
                                     Search
