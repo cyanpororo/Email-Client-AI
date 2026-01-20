@@ -6,10 +6,10 @@ GitHub repo URL: https://github.com/cyanpororo/Email-Client-AI
 
 # **TEAM INFORMATION**
 
-| Student ID | Full name | Git account | Contribution | Contribution percentage (100% total) | Expected total points | Final total points |
+| Student ID | Full name | Git account | Contribution | Contribution percentage | Expected total points | Final total points |
 | :---- | :---- | :---- | :---- | :---- | :---- | :---- |
-| 21120410 | Nguyen Tuan Anh | ntanh0901 | \<List of tasks done by student 1\> | 50% |  |  |
-| 22120098 | Phan Anh Hao | cyanpororo | \<List of tasks done by student 2\> | 50% |  |  |
+| 21120410 | Nguyen Tuan Anh | ntanh0901 | • Kanban column management<br>• Fuzzy search implementation<br>• AI-powered email summarization service<br>• Offline support implementation (IndexedDB & service worker)<br>• Email client UI components (mailbox & compose modal)<br>• Responsive design enhancements<br>• Rate limiting & API error handling | 50% | 10.75 |  |
+| 22120098 | Phan Anh Hao | cyanpororo | • Semantic search with vector embeddings<br>• Intelligent auto-suggestion system<br>• Kanban drag-and-drop, sorting & filtering<br>• Gmail API integration & OAuth configuration<br>• Attachment handling (viewing & downloading)<br>• Authentication & token management<br>• Documentation & deployment setup | 50% | 10.75 |  |
 
 # **FEATURE LIST**
 
@@ -32,7 +32,7 @@ Students must input minus points to every uncompleted feature in the SE column.
 |  | Website architect | \-3 | \-0 |  | React SPA with backend API. Clear separation of concerns. OAuth2 flow, token handling |
 |  | Website stability and compatibility | \-4 | \-0 |  | Responsive design, tested on Chrome, Safari, Firefox, and Edge |
 |  | Document | \-2 | \-0 |  | README with setup guide, API endpoints, Google OAuth setup, token storage explanation, security considerations |
-|  | Demo video | \-5 |  |  | Video demonstrating: Gmail login, inbox sync, Kanban board, AI summarization, semantic search, drag-drop |
+|  | Demo video | \-5 | \-0 |  | Video demonstrating: Gmail login, inbox sync, Kanban board, AI summarization, semantic search, drag-drop |
 |  | Publish to public hosts | \-1 | \-0 |  | Frontend deployed (Netlify/Vercel), Backend deployed (Render/Railway/Cloud Run) |
 |  | Development progress is recorded in Github | \-7 | \-0 |  | Git history with meaningful commits, branches for features, pull requests |
 | **2** | **Authentication & Token Management** |  |  |  |  |
@@ -109,21 +109,23 @@ Students must input minus points to every uncompleted feature in the SE column.
 
 # **GIT HISTORY**
 
-## **Contributors**
+## **Significant Commits**
 
-| Avatar | Username | Commits | Additions | Deletions |
-| :---- | :---- | :---- | :---- | :---- |
-|  | \<git_username_1\> |  |  |  |
-|  | \<git_username_2\> |  |  |  |
-|  | \<git_username_3\> |  |  |  |
+**Note:** For the complete commit history with all details, please refer to the **Teamwork Report**. Below are the most significant feature commits:
 
-## **Commits**
-
-*List significant commits here with format:*
-
-| Date | Author | Commit Message | Files Changed |
+| Date | Author | Commit Message | Feature Area |
 | :---- | :---- | :---- | :---- |
-| YYYY-MM-DD | \<author\> | \<commit message\> | \<number\> |
+| 2026-01-17 | ntanh0901 | feat: integrate rate limiting with throttler for API endpoints and enhance error handling | Backend Infrastructure |
+| 2026-01-15 | cyanpororo | feat: add attachment handling to the compose modal | Email Actions |
+| 2025-12-23 | ntanh0901 | feat: implement Kanban column management functionality | Kanban Configuration |
+| 2025-12-19 | cyanpororo | feat: implement intelligent auto-suggestion for email search | Search Features |
+| 2025-12-19 | cyanpororo | feat: implement semantic search with embeddings on backend | AI & Search |
+| 2025-12-16 | ntanh0901 | feat: add fuzzy email search functionality and integrate with inbox view | Search Features |
+| 2025-12-09 | ntanh0901 | feat: add email summarization service and integrate with workflow for AI-generated summaries | AI Features |
+| 2025-12-07 | cyanpororo | feat: implement kanban view and card drag-drop function | Kanban Core |
+| 2025-12-03 | ntanh0901 | feat: Implement IndexedDB caching for offline support | Advanced Features |
+| 2025-11-29 | cyanpororo | feat: store refresh tokens in HttpOnly Secure cookies | Authentication |
+| 2025-11-29 | cyanpororo | feat: implement email client with gmail integration | Core Infrastructure |
 
 ---
 
@@ -195,4 +197,77 @@ Students must input minus points to every uncompleted feature in the SE column.
 
 ---
 
-*Note: Fill in the student information, contribution details, self-evaluation scores, and git history before submission.*
+# **EVIDENCE & PROOF**
+
+**Note:** For visualized evidence of all features in action, please refer to the **Demo Video**. This section provides summarized code-based evidence from the codebase.
+
+---
+
+## **1. Overall Requirements**
+
+- **User-centered design:** Kanban UI (`KanbanBoard.tsx`, 406 lines), AI-powered features, 3-column responsive layout
+- **Database:** PostgreSQL with 6 tables (`users`, `emails`, `email_vectors`, `kanban_columns`, `snooze_schedules`, `labels`), pgvector extension
+- **Layout:** 3-column interface (`Inbox.tsx`, `MailboxSidebar.tsx`, `EmailListView.tsx`, `EmailDetail.tsx`)
+- **Architecture:** React SPA (34+ components, 10 custom hooks) + NestJS backend (modular: auth, gmail, workflow modules)
+- **Stability:** Error handling (`errorHandler.ts`), offline support, cross-browser tested, responsive design
+- **Documentation:** Comprehensive README.md (290 lines): setup, OAuth config, API endpoints, security
+- **Deployment:** Frontend & Backend deployed on Render
+- **Git History:** 50+ commits, 10 feature branches with PRs, conventional commits, 2 active contributors
+
+## **2. Authentication & Token Management**
+
+
+- **OAuth 2.0:** Gmail OAuth endpoints (`gmail.controller.ts`), Authorization Code flow, scopes configured
+- **Token Security:** Access token in-memory (`AuthContext.tsx`), refresh token in httpOnly cookie (`auth.controller.ts`)
+- **Auto-refresh:** Endpoint `/api/auth/refresh`, handles expired tokens, concurrency protection
+- **Logout:** Clears cookies, invalidates session, syncs across tabs via BroadcastChannel
+
+## **3. Email Synchronization & Display**
+
+- **Gmail Integration:** Gmail API v1 (`gmail.service.ts`), endpoint `/api/gmail/mailboxes/:id/emails`
+- **Pagination:** PageToken support, virtual scrolling with react-window
+- **Email Detail:** Full view (`EmailDetail.tsx`, 10.5KB), DOMPurify sanitization, metadata display
+- **Mailbox List:** Sidebar (`MailboxSidebar.tsx`), label sync with counts
+- **Open in Gmail:** Direct link to Gmail web interface
+
+## **4. Kanban Board Interface**
+
+- **Board Layout:** `KanbanBoard.tsx` (406 lines), default columns (Inbox, To Do, In Progress, Done)
+- **Email Cards:** `KanbanCard.tsx` (6.8KB), displays sender, subject, snippet, AI summary, status indicators
+- **Drag-and-Drop:** `@dnd-kit` library, `handleDragEnd()` handler
+- **Persistence:** Workflow service (`workflow.service.ts`), endpoint `/api/workflow/:msgId`
+- **Dynamic Config:** Settings modal (`KanbanSettings.tsx`, 19.6KB), column CRUD operations (`kanban-column.service.ts`, 297 lines), 5 API endpoints
+- **Gmail Label Sync:** Columns map to Gmail labels, updates sync via API
+
+## **5. Snooze Mechanism**
+
+- **Snooze UI:** Modal (`SnoozeModal.tsx`, 5.9KB), presets (Tomorrow, Next week), custom date/time picker, timezone handling
+- **Hide Logic:** Workflow filtering in `KanbanBoard.tsx`, backend checks `snoozed_until`
+- **Auto-Return:** Scheduler service (`workflow.service.ts`), timestamp storage, frontend polling
+
+## **6. AI Features**
+
+- **AI Summarization:** Perplexity API service (`summarization.service.ts`, 84 lines), endpoint `/api/workflow/:msgId/summary`, 2-3 bullet points format, UI in `KanbanCard.tsx`
+- **Embeddings:** Mistral AI model (`embedding.service.ts`), combines subject+body, batch support
+- **Vector Storage:** pgvector extension, `email_vectors` table, semantic search service (`semantic-search.service.ts`, 467 lines), duplicate prevention
+
+## **7. Search Features**
+
+- **Fuzzy Search:** Fuse.js integration (`gmail.service.ts`), typo tolerance (threshold 0.4), partial matches, score ranking
+- **Fuzzy UI:** Search bar (`InboxHeader.tsx`, 13.7KB), search hook (`useInboxSearch.ts`), results component (`SearchResults.tsx`, 7.9KB), loading/empty/error states
+- **Semantic Search:** Vector similarity (`semantic-search.service.ts`), pgvector cosine matching, threshold 0.5, endpoint `/api/gmail/search/semantic`, fuzzy fallback
+- **Auto-Suggestions:** Dropdown component (`SearchSuggestions.tsx`), backend `getSearchSuggestions()`, hook (`useSearchSuggestions.ts`, 3.9KB), keyboard navigation
+
+## **8. Filtering & Sorting**
+
+- **Sort:** Controls in `InboxHeader.tsx`, by `internalDate` (newest/oldest)
+- **Filters:** Unread (`labelIds` check), attachments (payload.parts), real-time React state updates
+
+## **9. Email Actions**
+
+- **Read/Unread:** Endpoints `/api/gmail/emails/:id/read|unread`, mutations (`useOfflineEmails.ts`), optimistic updates
+- **Compose:** Modal (`ComposeModal.tsx`, 10.7KB), rich text editor, To/Cc/Bcc fields, attachment support
+- **Reply/Forward:** Flow hook (`useComposeFlow.ts`, 6.7KB), pre-filled fields
+- **Send:** Gmail API endpoint `/api/gmail/emails/send`, MIME construction, Base64 encoding
+- **Attachments:** View in `EmailDetail.tsx`, download endpoint `/api/gmail/emails/:msgId/attachments/:attId`
+- **Delete:** Endpoint `/api/gmail/emails/:id/delete`, optimistic UI updates
